@@ -21,7 +21,7 @@ A clean, modern Twitch chat viewer built with Next.js and TypeScript. This appli
 
 - **Framework**: Next.js 14 with App Router and React Server Components
 - **Language**: TypeScript
-- **Styling**: Tailwind CSS with ShadcN/UI, Aceternity, and MagicUI components
+- **Styling**: Tailwind CSS with shadcn/ui, Aceternity, and Magic UI components
 - **WebSocket**: Native WebSocket API for Twitch IRC connection
 - **State Management**: React Hooks
 - **Animations**: Framer Motion
