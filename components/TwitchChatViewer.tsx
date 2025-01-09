@@ -1,9 +1,127 @@
 'use client'
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
 import { AlertCircle } from 'lucide-react';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
+
+// WebSocket connection singleton
+class TwitchWebSocket {
+  private static instance: TwitchWebSocket | null = null;
+  private ws: WebSocket | null = null;
+  private currentChannel: string = '';
+  private pingInterval: NodeJS.Timeout | null = null;
+  private listeners: Set<(data: string) => void> = new Set();
+  private statusListeners: Set<(status: boolean) => void> = new Set();
+
+  private constructor() {}
+
+  static getInstance(): TwitchWebSocket {
+    if (!TwitchWebSocket.instance) {
+      TwitchWebSocket.instance = new TwitchWebSocket();
+    }
+    return TwitchWebSocket.instance;
+  }
+
+  addListener(callback: (data: string) => void) {
+    this.listeners.add(callback);
+  }
+
+  removeListener(callback: (data: string) => void) {
+    this.listeners.delete(callback);
+  }
+
+  addStatusListener(callback: (status: boolean) => void) {
+    this.statusListeners.add(callback);
+    // Immediately send current status if connected
+    if (this.ws) {
+      callback(this.ws.readyState === WebSocket.OPEN);
+    }
+  }
+
+  removeStatusListener(callback: (status: boolean) => void) {
+    this.statusListeners.delete(callback);
+  }
+
+  private notifyListeners(data: string) {
+    this.listeners.forEach(listener => listener(data));
+  }
+
+  private updateStatus(status: boolean) {
+    this.statusListeners.forEach(listener => listener(status));
+  }
+
+  connect(channel: string) {
+    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+      if (this.currentChannel) {
+        this.ws.send(`PART #${this.currentChannel}`);
+      }
+      this.ws.send(`JOIN #${channel}`);
+      this.currentChannel = channel;
+      return;
+    }
+
+    if (this.ws) {
+      this.ws.close();
+    }
+
+    if (this.pingInterval) {
+      clearInterval(this.pingInterval);
+    }
+
+    this.ws = new WebSocket('wss://irc-ws.chat.twitch.tv');
+    this.currentChannel = channel;
+
+    this.ws.onopen = () => {
+      if (!this.ws) return;
+      
+      this.updateStatus(true);
+      this.ws.send('CAP REQ :twitch.tv/tags twitch.tv/commands');
+      this.ws.send('PASS oauth:jdv6wslre6dkrb815q9n3ntj69v8ft');
+      this.ws.send('NICK xbraac');
+      this.ws.send('USER xbraac 8 * :xbraac');
+      this.ws.send(`JOIN #${channel}`);
+
+      // Setup ping interval
+      this.pingInterval = setInterval(() => {
+        if (this.ws?.readyState === WebSocket.OPEN) {
+          this.ws.send('PING');
+        }
+      }, 20000);
+    };
+
+    this.ws.onmessage = (event) => {
+      if (event.data.startsWith('PING')) {
+        this.ws?.send('PONG');
+        return;
+      }
+      this.notifyListeners(event.data);
+    };
+
+    this.ws.onclose = () => {
+      this.updateStatus(false);
+      if (this.pingInterval) {
+        clearInterval(this.pingInterval);
+      }
+    };
+
+    this.ws.onerror = () => {
+      this.updateStatus(false);
+    };
+  }
+
+  disconnect() {
+    if (this.pingInterval) {
+      clearInterval(this.pingInterval);
+    }
+    if (this.ws) {
+      this.ws.close();
+      this.ws = null;
+    }
+    this.currentChannel = '';
+    this.updateStatus(false);
+  }
+}
 
 interface EmotePosition {
   start: number;
@@ -24,6 +142,23 @@ interface Message {
   emotes: Emote[];
   timestamp: Date;
 }
+
+// Badge URL mapping
+const BADGE_URLS: Record<string, string> = {
+  'broadcaster/1': 'https://static-cdn.jtvnw.net/badges/v1/5527c58c-fb7d-422d-b71b-f309dcb85cc1/2',
+  'moderator/1': 'https://static-cdn.jtvnw.net/badges/v1/3267646d-33f0-4b17-b3df-f923a41db1d0/1',
+  'vip/1': 'https://static-cdn.jtvnw.net/badges/v1/b817aba4-fad8-49e2-b88a-7cc744dfa6ec/1',
+  'partner/1': 'https://static-cdn.jtvnw.net/badges/v1/d12a2e27-16f6-41d0-ab77-b780518f00a3/1',
+  'premium/1': 'https://static-cdn.jtvnw.net/badges/v1/bbbe0db0-a598-423e-86d0-f9fb98ca1933/1',
+  'turbo/1': 'https://static-cdn.jtvnw.net/badges/v1/bd444ec6-8f34-4bf9-91f4-af1e3428d80f/1',
+  'sub-gifter/1': 'https://static-cdn.jtvnw.net/badges/v1/a5ef6c17-2e5b-4d8f-9b80-2779fd722414/1',
+  'sub-gifter/50': 'https://static-cdn.jtvnw.net/badges/v1/c4a29737-e8a5-4420-917a-314a447f083e/1',
+  'sub-gifter/100': 'https://static-cdn.jtvnw.net/badges/v1/8343ada7-3451-434e-91c4-e82bdcf54460/1',
+  'bits/1': 'https://static-cdn.jtvnw.net/badges/v1/73b5c3fb-24f9-4a82-a852-2f475b59411c/1',
+  'twitch-recap-2024/1': 'https://static-cdn.jtvnw.net/badges/v1/72f2a6ac-3d9b-4406-b9e9-998b27182f61/1',
+  'raging-wolf-helm/1': 'https://static-cdn.jtvnw.net/badges/v1/3ff668be-59a3-4e3e-96af-e6b2908b3171/1',
+  'purple-pixel-heart---together-for-good-24/1': 'https://static-cdn.jtvnw.net/badges/v1/1afb4b76-8c34-4b7b-8beb-75f7e5d2a1ab/1'
+};
 
 // Parse Twitch IRC tags into an object
 const parseTags = (tagString: string) => {
@@ -56,8 +191,8 @@ export default function TwitchChatViewer() {
   const [error, setError] = useState<string | null>(null);
   const [channel, setChannel] = useState('hamy');
   const [inputChannel, setInputChannel] = useState('');
-  const ws = useRef<WebSocket | null>(null);
   const chatRef = useRef<HTMLDivElement | null>(null);
+  const twitchWS = useRef<TwitchWebSocket>(TwitchWebSocket.getInstance());
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
@@ -66,91 +201,75 @@ export default function TwitchChatViewer() {
     }
   }, [messages]);
 
-  const connectToChannel = useCallback((channelName: string) => {
-    if (ws.current) {
-      ws.current.close();
-    }
-
-    ws.current = new WebSocket('wss://irc-ws.chat.twitch.tv');
-
-    ws.current.onopen = () => {
-      setConnected(true);
-      setError(null);
-      
-      // Send initial connection messages
-      if (ws.current) {
-        ws.current.send('CAP REQ :twitch.tv/tags twitch.tv/commands');
-        ws.current.send('PASS oauth:jdv6wslre6dkrb815q9n3ntj69v8ft');
-        ws.current.send('NICK xbraac');
-        ws.current.send('USER xbraac 8 * :xbraac');
-        ws.current.send(`JOIN #${channelName}`);
-      }
-    };
-
-    ws.current.onmessage = (event) => {
-      const message = event.data;
-      
-      // Handle PING messages
-      if (message.startsWith('PING')) {
-        ws.current?.send('PONG');
-        return;
-      }
-
-      // Parse chat messages
-      if (message.includes('PRIVMSG')) {
-        const messageParts = message.split(' ');
-        const tags = messageParts[0];
-        const messageText = messageParts.slice(4).join(' ').slice(1); // Remove leading colon
-        const parsedTags = parseTags(tags.slice(1)); // Remove leading @
-        
-        setMessages(prev => [...prev, {
-          id: parsedTags['id'],
-          user: parsedTags['display-name'],
-          color: parsedTags['color'] || '#FFFFFF',
-          badges: parsedTags['badges'],
-          message: messageText,
-          emotes: parseEmotes(parsedTags['emotes']),
-          timestamp: new Date(parseInt(parsedTags['tmi-sent-ts']))
-        }]);
-      }
-    };
-
-    ws.current.onerror = () => {
-      setError('WebSocket connection error');
-      setConnected(false);
-    };
-
-    ws.current.onclose = () => {
-      setConnected(false);
-      // Attempt to reconnect after 5 seconds
-      setTimeout(() => connectToChannel(channelName), 5000);
-    };
-  }, []);
-
   useEffect(() => {
-    connectToChannel(channel);
+    const ws = twitchWS.current;
+
+    const handleMessage = (message: string) => {
+      if (!message.includes('PRIVMSG')) return;
+
+      const messageParts = message.split(' ');
+      const tags = messageParts[0];
+      const messageText = messageParts.slice(4).join(' ').slice(1);
+      const parsedTags = parseTags(tags.slice(1));
+      
+      setMessages(prev => [...prev, {
+        id: parsedTags['id'],
+        user: parsedTags['display-name'],
+        color: parsedTags['color'] || '#FFFFFF',
+        badges: parsedTags['badges'],
+        message: messageText,
+        emotes: parseEmotes(parsedTags['emotes']),
+        timestamp: new Date(parseInt(parsedTags['tmi-sent-ts']))
+      }]);
+    };
+
+    const handleStatus = (status: boolean) => {
+      setConnected(status);
+      if (!status) {
+        setError('Disconnected from chat');
+      } else {
+        setError(null);
+      }
+    };
+
+    ws.addListener(handleMessage);
+    ws.addStatusListener(handleStatus);
+    ws.connect(channel);
 
     return () => {
-      if (ws.current) {
-        ws.current.close();
-      }
+      ws.removeListener(handleMessage);
+      ws.removeStatusListener(handleStatus);
     };
-  }, [channel, connectToChannel]);
+  }, [channel]);
 
   // Render badges
   const renderBadges = (badgeString: string) => {
     if (!badgeString) return null;
     return badgeString.split(',').map((badge, index) => {
-      const [type, version] = badge.split('/');
-      const badgeUrl = `https://static-cdn.jtvnw.net/badges/v1/${type}/${version}/1`;
+      const [badgeType] = badge.split('/');
+      
+      // Handle subscriber badge as text
+      if (badgeType === 'subscriber') {
+        return (
+          <span key={`${badge}-${index}`} className="inline-block mr-2 px-1 bg-purple-600 rounded text-xs text-white">
+            Subscriber
+          </span>
+        );
+      }
+
+      // Handle other badges with images
+      const badgeUrl = BADGE_URLS[badge];
+      if (!badgeUrl) return null;
+
       return (
-        <div key={`${type}-${version}-${index}`} className="inline-block mr-1">
+        <div key={`${badge}-${index}`} className="inline-block mr-1">
           <Image
             src={badgeUrl}
-            alt={type}
-            width={16}
-            height={16}
-            unoptimized // Since these are already small images from CDN
+            alt={badgeType}
+            width={20}
+            height={20}
+            className="inline-block"
+            unoptimized
           />
         </div>
       );
@@ -200,13 +319,13 @@ export default function TwitchChatViewer() {
         <div className="max-w-4xl mx-auto space-y-2">
           {messages.map((msg) => (
             <div key={msg.id} className="rounded p-2 bg-[#111111] hover:bg-[#1a1a1a] transition-colors">
-              <div className="flex items-start space-x-2">
-                <div className="flex-shrink-0">
+              <div className="flex items-center space-x-2">
+                <div className="flex-shrink-0 flex items-center">
                   {renderBadges(msg.badges)}
                 </div>
                 <div className="flex-1 min-w-0">
                   <span className="font-bold" style={{ color: msg.color }}>
-                    {msg.user}
+                    {msg.user}:
                   </span>
                   <span className="text-gray-400 ml-2">
                     {msg.message}
