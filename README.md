@@ -1,36 +1,167 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Twitch Chat Viewer
 
-## Getting Started
+A clean, modern Twitch chat viewer built with Next.js and TypeScript. This application provides a streamlined interface for viewing Twitch chat messages in real-time, with support for badges, emotes, and user colors.
 
-First, run the development server:
+## Features
 
+- Real-time chat message streaming using WebSocket connection
+- Support for Twitch badges and user colors
+- Clean, dark mode interface optimized for readability
+- Dynamic channel switching
+- Auto-reconnection on connection loss
+- Message timestamps
+- Automatic scrolling with new messages
+- Responsive design that works on all screen sizes
+- Connection status indicator
+
+## Tech Stack
+
+- **Framework**: Next.js 14 with App Router
+- **Language**: TypeScript
+- **Styling**: Tailwind CSS with ShadcN/UI components
+- **WebSocket**: Native WebSocket API for Twitch IRC connection
+- **Icons**: Lucide React
+- **Fonts**: Inter (Google Fonts)
+
+## Prerequisites
+
+Before you begin, ensure you have the following installed:
+- Node.js (version 18 or higher)
+- npm, yarn, or pnpm
+
+## Installation
+
+1. Clone the repository:
+```bash
+git clone https://github.com/yourusername/twitch-chat-viewer.git
+cd twitch-chat-viewer
+```
+
+2. Install dependencies:
+```bash
+npm install
+# or
+yarn install
+# or
+pnpm install
+```
+
+3. Start the development server:
 ```bash
 npm run dev
 # or
 yarn dev
 # or
 pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+5. Open [http://localhost:3000](http://localhost:3000) in your browser to see the application.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Usage
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+1. When you first open the application, you'll see an input field at the top of the page.
+2. Enter the name of any Twitch channel you want to watch (without the # symbol).
+3. Click "Join Channel" or press Enter to connect to that channel's chat.
+4. The chat messages will appear in real-time, with user badges, colors, and timestamps.
+5. You can switch channels at any time by entering a new channel name.
 
-## Learn More
+## Project Structure
 
-To learn more about Next.js, take a look at the following resources:
+```
+braac-Twitch-Chat-Viewer/
+├── app/                    # Next.js app directory
+│   ├── globals.css        # Global styles
+│   ├── layout.tsx         # Root layout component
+│   └── page.tsx           # Homepage component
+├── components/            # React components
+│   ├── TwitchChatViewer.tsx  # Main chat viewer component
+│   └── ui/               # UI components
+│       └── alert.tsx     # Alert component
+└── lib/                  # Utility functions
+    └── utils.ts          # Helper functions
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Key Components
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+### TwitchChatViewer.tsx
 
-## Deploy on Vercel
+This is the main component that handles:
+- WebSocket connection to Twitch IRC
+- Message parsing and formatting
+- User interface rendering
+- Channel switching
+- Connection status management
+- Auto-scrolling behavior
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+### Interface Types
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```typescript
+interface Message {
+  id: string;
+  user: string;
+  color: string;
+  badges: string;
+  message: string;
+  emotes: Emote[];
+  timestamp: Date;
+}
+```
+
+## Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request. For major changes, please open an issue first to discuss what you would like to change.
+
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
+3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
+4. Push to the branch (`git push origin feature/AmazingFeature`)
+5. Open a Pull Request
+
+## License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
+
+## Acknowledgments
+
+- Twitch IRC documentation for chat connection specifications
+- ShadcN/UI for the component library
+- Tailwind CSS for the styling system
+- Next.js team for the amazing framework
+
+## Troubleshooting
+
+### Common Issues
+
+1. **Connection Errors**
+   - Ensure your OAuth token is valid and properly configured
+   - Check if the channel name is spelled correctly
+   - Verify your internet connection
+
+2. **Missing Badges**
+   - Some badges might not load if the CDN is unreachable
+   - Verify that the badge URLs are correct
+
+3. **Performance Issues**
+   - If the chat becomes slow, try reducing the maximum number of stored messages
+   - Ensure your browser is up to date
+
+## Security Considerations
+
+Currently, the Twitch OAuth token is hardcoded in the `TwitchChatViewer.tsx` component. For production use, it's recommended to:
+
+1. Implement proper OAuth flow with Twitch authentication
+2. Store sensitive credentials in environment variables
+3. Handle token refresh and expiration
+4. Add rate limiting for channel switching
+5. Implement proper error handling for authentication failures
+
+## Future Improvements
+
+- Add proper OAuth authentication flow
+- Add support for Twitch emotes
+- Implement message filtering options
+- Add user timeout and ban information
+- Support for chat commands
+- Add message search functionality
+- Implement chat replay functionality
+- Add support for BetterTTV and FrankerFaceZ emotes
