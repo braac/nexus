@@ -1,19 +1,25 @@
 'use client'
 
-import Link from "next/link"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { TwitchIcon } from '@/components/icons/twitch-icon'
-import { ValorantIcon } from '@/components/icons/valorant-icon'
+import { useState } from "react";
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { TwitchIcon } from '@/components/icons/twitch-icon';
+import { ValorantIcon } from '@/components/icons/valorant-icon';
 
 export default function Page() {
+  const [isHoveredTwitch, setIsHoveredTwitch] = useState(false);
+  const [isHoveredValorant, setIsHoveredValorant] = useState(false);
+
   return (
     <div className="min-h-screen relative overflow-hidden text-white">
+      {/* Background animations */}
       <div className="fixed inset-0 -z-10">
         <div className="absolute inset-0 animate-gradient bg-gradient-dark" />
         <div className="absolute inset-0 animate-gradient opacity-30 bg-[radial-gradient(circle_at_50%_50%,rgba(75,75,75,0.3),transparent_70%)]" style={{ animationDelay: '-5s' }} />
         <div className="absolute inset-0 animate-gradient opacity-20 bg-[radial-gradient(circle_at_0%_0%,rgba(100,100,100,0.2),transparent_50%)]" style={{ animationDelay: '-10s' }} />
       </div>
+
       <div className="container mx-auto px-4">
         {/* Header */}
         <header className="py-6 text-center">
@@ -24,14 +30,41 @@ export default function Page() {
         <main className="py-20 flex items-center justify-center min-h-[calc(100vh-160px)]">
           <div className="max-w-4xl w-full">
             <div className="grid md:grid-cols-2 gap-8">
-              <Card className="bg-white/10 backdrop-blur-xl border-white/20">
+              {/* Twitch Card */}
+              <Card 
+                className="bg-white/10 backdrop-blur-xl border-white/20 relative overflow-hidden group"
+                onMouseEnter={() => setIsHoveredTwitch(true)}
+                onMouseLeave={() => setIsHoveredTwitch(false)}
+              >
+                {/* Animated blob background */}
+                <div className="absolute inset-0 transition-opacity duration-500 ease-in-out opacity-0 group-hover:opacity-100">
+                  <div className="absolute inset-0 bg-purple-400/10" />
+                  <div 
+                    className="absolute size-64 top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full"
+                    style={{
+                      background: 'radial-gradient(circle at center, rgba(168, 85, 247, 0.4), transparent 70%)',
+                      filter: 'blur(40px)',
+                      animation: isHoveredTwitch ? 'blob 7s infinite' : 'none',
+                    }}
+                  />
+                  <div 
+                    className="absolute size-48 top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full"
+                    style={{
+                      background: 'radial-gradient(circle at center, rgba(168, 85, 247, 0.3), transparent 70%)',
+                      filter: 'blur(40px)',
+                      animation: isHoveredTwitch ? 'blob 7s infinite reverse' : 'none',
+                      animationDelay: '-3.5s',
+                    }}
+                  />
+                </div>
+
                 <CardHeader>
-                  <CardTitle className="flex items-center space-x-2 text-white">
+                  <CardTitle className="flex items-center space-x-2 text-white relative z-10">
                     <TwitchIcon className="w-8 h-8 text-purple-400" />
                     <span>Twitch</span>
                   </CardTitle>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="relative z-10">
                   <CardDescription className="text-gray-300">
                     Experience a sleek Twitch chat UI interface. Engage with streamers and fellow viewers in real-time, with customizable themes and emote support.
                   </CardDescription>
@@ -43,14 +76,41 @@ export default function Page() {
                 </CardContent>
               </Card>
 
-              <Card className="bg-white/10 backdrop-blur-xl border-white/20">
+              {/* Valorant Card */}
+              <Card 
+                className="bg-white/10 backdrop-blur-xl border-white/20 relative overflow-hidden group"
+                onMouseEnter={() => setIsHoveredValorant(true)}
+                onMouseLeave={() => setIsHoveredValorant(false)}
+              >
+                {/* Animated blob background */}
+                <div className="absolute inset-0 transition-opacity duration-500 ease-in-out opacity-0 group-hover:opacity-100">
+                  <div className="absolute inset-0 bg-red-500/10" />
+                  <div 
+                    className="absolute size-64 top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full"
+                    style={{
+                      background: 'radial-gradient(circle at center, rgba(239, 68, 68, 0.4), transparent 70%)',
+                      filter: 'blur(40px)',
+                      animation: isHoveredValorant ? 'blob 7s infinite' : 'none',
+                    }}
+                  />
+                  <div 
+                    className="absolute size-48 top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full"
+                    style={{
+                      background: 'radial-gradient(circle at center, rgba(239, 68, 68, 0.3), transparent 70%)',
+                      filter: 'blur(40px)',
+                      animation: isHoveredValorant ? 'blob 7s infinite reverse' : 'none',
+                      animationDelay: '-3.5s',
+                    }}
+                  />
+                </div>
+
                 <CardHeader>
-                  <CardTitle className="flex items-center space-x-2 text-white">
+                  <CardTitle className="flex items-center space-x-2 text-white relative z-10">
                     <ValorantIcon className="w-8 h-8 text-red-500" />
                     <span>Valorant</span>
                   </CardTitle>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="relative z-10">
                   <CardDescription className="text-gray-300">
                     Dive into detailed Valorant player statistics. Track performance, analyze match history, and compare stats with friends or pro players.
                   </CardDescription>
@@ -63,6 +123,20 @@ export default function Page() {
           </div>
         </main>
       </div>
+
+      <style jsx global>{`
+        @keyframes blob {
+          0%, 100% {
+            transform: translate(-50%, -50%) scale(1);
+          }
+          33% {
+            transform: translate(-50%, -50%) scale(1.1) translate(10%, 10%);
+          }
+          66% {
+            transform: translate(-50%, -50%) scale(0.9) translate(-10%, -10%);
+          }
+        }
+      `}</style>
     </div>
-  )
+  );
 }

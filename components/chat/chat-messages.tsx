@@ -12,95 +12,84 @@ interface ChatMessagesProps {
     messages: Message[];
 }
 
-const MESSAGE_LIMIT = 200; // Maximum number of messages to keep in state
-const SCROLL_THRESHOLD = 100; // Pixels from bottom to trigger auto-scroll
-const BATCH_INTERVAL = 250; // Milliseconds to wait before processing next batch
+const MESSAGE_LIMIT = 200;
+const SCROLL_THRESHOLD = 100;
 
 export default function ChatMessages({ messages }: ChatMessagesProps) {
-    // State for scroll management
+    // State management for the chat interface
     const [autoScroll, setAutoScroll] = useState(true);
     const [showScrollButton, setShowScrollButton] = useState(false);
     const [unreadCount, setUnreadCount] = useState(0);
+    const [displayedMessages, setDisplayedMessages] = useState<Message[]>([]);
+    const [pendingMessages, setPendingMessages] = useState<Message[]>([]);
+
+    // Refs for managing scroll behavior and message processing
+    const chatRef = useRef<HTMLDivElement | null>(null);
     const scrollLockRef = useRef(false);
     const buttonTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-    const [displayedMessages, setDisplayedMessages] = useState<Message[]>([]);
-    // Store messages that arrive while scrolled up
-    const [pendingMessages, setPendingMessages] = useState<Message[]>([]);
-    
-    // Refs for DOM elements and timers
-    const chatRef = useRef<HTMLDivElement | null>(null);
-    const batchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
     const lastProcessedMessageRef = useRef<string | null>(null);
 
-    // Batch process new messages
+    // Main message processing effect
     useEffect(() => {
+        console.log('Message processing started:', {
+            totalMessages: messages.length,
+            autoScroll,
+            currentUnreadCount: unreadCount
+        });
+
         if (messages.length === 0) return;
-        
-        // Get only new messages since last process
+
         const lastProcessedIndex = lastProcessedMessageRef.current 
             ? messages.findIndex(m => m.id === lastProcessedMessageRef.current)
             : -1;
+
+        console.log('Finding new messages:', {
+            lastProcessedId: lastProcessedMessageRef.current,
+            lastProcessedIndex,
+            autoScrollState: autoScroll
+        });
+
         const newMessages = lastProcessedIndex === -1 
-            ? messages 
+            ? [messages[messages.length - 1]]
             : messages.slice(lastProcessedIndex + 1);
+
+        console.log('New messages to process:', {
+            count: newMessages.length,
+            messageIds: newMessages.map(m => m.id)
+        });
 
         if (newMessages.length === 0) return;
 
-        // If not auto-scrolling, add messages to pending queue instead
-        if (!autoScroll) {
-            setPendingMessages(prev => {
-                // Filter out any duplicate messages by ID
-                const uniqueNewMessages = newMessages.filter(
-                    newMsg => !prev.some(prevMsg => prevMsg.id === newMsg.id)
-                );
-                
-                // Only update unread count with actual new unique messages
-                if (uniqueNewMessages.length > 0) {
-                    setUnreadCount(prev => prev + uniqueNewMessages.length);
-                }
-                
-                return [...prev, ...uniqueNewMessages];
-            });
-            return;
-        }
+        lastProcessedMessageRef.current = messages[messages.length - 1].id;
 
-        // Clear existing timeout if it exists
-        if (batchTimeoutRef.current) {
-            clearTimeout(batchTimeoutRef.current);
-        }
-
-        // Set timeout to process messages
-        batchTimeoutRef.current = setTimeout(() => {
+        if (autoScroll) {
+            console.log('Updating displayed messages (auto-scroll)');
             setDisplayedMessages(prev => {
                 const combined = [...prev, ...newMessages];
-                // Keep only the most recent messages up to the limit
                 return combined.slice(-MESSAGE_LIMIT);
             });
+        } else {
+            console.log('Updating pending messages and count (scrolled up)');
+            setPendingMessages(prev => [...prev, ...newMessages]);
+            setUnreadCount(prev => {
+                const newCount = prev + newMessages.length;
+                console.log('Updating unread count:', { prevCount: prev, newCount });
+                return newCount;
+            });
+        }
+    }, [messages, autoScroll, unreadCount]);
 
-            // Update last processed message
-            lastProcessedMessageRef.current = newMessages[newMessages.length - 1].id;
-        }, BATCH_INTERVAL);
-
-        return () => {
-            if (batchTimeoutRef.current) {
-                clearTimeout(batchTimeoutRef.current);
-            }
-        };
-    }, [messages, autoScroll]);
-
-    // Handle auto-scrolling when new messages are displayed
+    // Auto-scroll effect
     useEffect(() => {
         if (chatRef.current && autoScroll) {
-            // Set scroll lock to prevent button flicker
             scrollLockRef.current = true;
             
-            // Clear any pending button show timeout
             if (buttonTimeoutRef.current) {
                 clearTimeout(buttonTimeoutRef.current);
                 buttonTimeoutRef.current = null;
             }
 
-            const smooth = displayedMessages.length < 50; // Only smooth scroll for small message counts
+            const smooth = displayedMessages.length < 50;
             chatRef.current.scrollTo({
                 top: chatRef.current.scrollHeight,
                 behavior: smooth ? 'smooth' : 'auto'
@@ -109,14 +98,13 @@ export default function ChatMessages({ messages }: ChatMessagesProps) {
             setUnreadCount(0);
             setShowScrollButton(false);
 
-            // Release scroll lock after scrolling completes
             setTimeout(() => {
                 scrollLockRef.current = false;
-            }, smooth ? 300 : 50); // Longer delay for smooth scroll
+            }, smooth ? 300 : 50);
         }
     }, [displayedMessages, autoScroll]);
 
-    // Debounced scroll handler
+    // Scroll event handler
     const handleScroll = useCallback(() => {
         if (!chatRef.current || scrollLockRef.current) return;
 
@@ -124,16 +112,20 @@ export default function ChatMessages({ messages }: ChatMessagesProps) {
         const distanceFromBottom = scrollHeight - scrollTop - clientHeight;
         const isNearBottom = distanceFromBottom < SCROLL_THRESHOLD;
 
+        console.log('Scroll event:', {
+            isNearBottom,
+            distanceFromBottom,
+            previousAutoScroll: autoScroll
+        });
+
         setAutoScroll(isNearBottom);
         
-        // Clear any existing button show timeout
         if (buttonTimeoutRef.current) {
             clearTimeout(buttonTimeoutRef.current);
             buttonTimeoutRef.current = null;
         }
 
         if (!isNearBottom) {
-            // Add a small delay before showing the button to prevent flickering
             buttonTimeoutRef.current = setTimeout(() => {
                 if (!scrollLockRef.current) {
                     setShowScrollButton(true);
@@ -143,36 +135,38 @@ export default function ChatMessages({ messages }: ChatMessagesProps) {
             setShowScrollButton(false);
             setUnreadCount(0);
         }
-    }, []);
+    }, [autoScroll]);
 
-    // Scroll to bottom and process pending messages
+    // Resume chat handler
     const scrollToBottom = useCallback(() => {
-        if (chatRef.current) {
-            // Process any pending messages before scrolling
-            if (pendingMessages.length > 0) {
-                setDisplayedMessages(prev => {
-                    const combined = [...prev, ...pendingMessages];
-                    return combined.slice(-MESSAGE_LIMIT);
-                });
-                setPendingMessages([]); // Clear pending messages
-                lastProcessedMessageRef.current = pendingMessages[pendingMessages.length - 1].id;
-            }
+        if (!chatRef.current) return;
 
-            // Scroll to bottom after a brief delay to allow for render
-            setTimeout(() => {
-                if (chatRef.current) {
-                    chatRef.current.scrollTo({
-                        top: chatRef.current.scrollHeight,
-                        behavior: 'smooth'
-                    });
-                }
-            }, 50);
+        console.log('Resuming chat:', {
+            pendingMessageCount: pendingMessages.length,
+            currentUnreadCount: unreadCount
+        });
 
-            setAutoScroll(true);
-            setShowScrollButton(false);
-            setUnreadCount(0);
+        if (pendingMessages.length > 0) {
+            setDisplayedMessages(prev => {
+                const combined = [...prev, ...pendingMessages];
+                return combined.slice(-MESSAGE_LIMIT);
+            });
+            setPendingMessages([]);
         }
-    }, [pendingMessages]);
+
+        setTimeout(() => {
+            if (chatRef.current) {
+                chatRef.current.scrollTo({
+                    top: chatRef.current.scrollHeight,
+                    behavior: 'smooth'
+                });
+            }
+        }, 50);
+
+        setAutoScroll(true);
+        setShowScrollButton(false);
+        setUnreadCount(0);
+    }, [pendingMessages, unreadCount]);
 
     const renderBadges = (badgeString: string) => {
         if (!badgeString) return null;
