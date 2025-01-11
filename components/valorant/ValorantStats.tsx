@@ -21,7 +21,7 @@ export default function ValorantStats() {
       {/* Enhanced background with more visible gradients */}
       <div className="fixed inset-0 -z-10">
         {/* Base gradient */}
-        <div className="absolute inset-0 bg-gradient-to-b from-[#1a0000] via-[#0a0000] to-black" />
+        <div className="absolute inset-0 bg-gradient-to-b from-red-500 via-yellow-500 to-blue-500" />
         
         {/* Radial gradients with animation */}
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(255,70,85,0.15),transparent_70%)] opacity-75 animate-pulse" style={{ animationDuration: '4s' }} />
