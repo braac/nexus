@@ -94,6 +94,15 @@ const config: Config = {
   			gradient: {
   				to: {
   					backgroundPosition: 'var(--bg-size) 0'
+  				},
+  				'0%': {
+  					backgroundPosition: '0% 50%'
+  				},
+  				'50%': {
+  					backgroundPosition: '100% 50%'
+  				},
+  				'100%': {
+  					backgroundPosition: '0% 50%'
   				}
   			},
   			'border-beam': {
@@ -136,6 +145,9 @@ const config: Config = {
   					transform: 'scale(2)',
   					opacity: '0'
   				}
+  			},
+  			animation: {
+  				gradient: 'gradient var(--animation-duration, 8s) linear infinite'
   			}
   		}
   	}

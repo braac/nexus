@@ -114,9 +114,11 @@ export default function Page() {
                   <CardDescription className="text-gray-300">
                     Dive into detailed Valorant player statistics. Track performance, analyze match history, and compare stats with friends or pro players.
                   </CardDescription>
-                  <Button variant="outline" className="mt-4 bg-red-500 text-white border-red-500 hover:bg-transparent hover:text-red-500">
-                    Check Valorant Stats
-                  </Button>
+                  <Link href="/valorant/stats">
+                    <Button variant="outline" className="mt-4 bg-red-500 text-white border-red-500 hover:bg-transparent hover:text-red-500">
+                      Check Valorant Stats
+                    </Button>
+                  </Link>
                 </CardContent>
               </Card>
             </div>
