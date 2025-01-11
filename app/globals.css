@@ -51,7 +51,7 @@
     --color-4: 195 100% 63%;
     --color-5: 90 100% 63%;
 
-    /* Dark mode specific overrides from homepage */
+    /* Dark mode specific overrides */
     --background: 222.2 84% 4.9%;
     --foreground: 210 40% 98%;
  
@@ -92,16 +92,34 @@
   }
 }
 
-/* Homepage animations */
+/* Animation Keyframes */
 @keyframes gradient-shift {
-  0% { background-position: 0% 50%; }
+  0%, 100% { background-position: 0% 50%; }
   50% { background-position: 100% 50%; }
-  100% { background-position: 0% 50%; }
 }
 
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* Animation Classes */
 .animate-gradient {
   animation: gradient-shift 15s ease infinite;
   background-size: 400% 400%;
+}
+
+.animate-pulse {
+  animation: pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+.animate-spin {
+  animation: spin 20s linear infinite;
 }
 
 .bg-gradient-dark {
