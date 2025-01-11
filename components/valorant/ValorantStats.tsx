@@ -2,121 +2,116 @@ import { Card, CardContent } from "@/components/ui/card";
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import AnimatedGradientText from "@/components/ui/animated-gradient-text";
+import { GradientText } from "@/components/ui/gradient-text";
 import NumberTicker from "@/components/ui/number-ticker";
-import ShimmerButton from "@/components/ui/shimmer-button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 export default function ValorantStats() {
   return (
-    <div className="min-h-screen relative overflow-hidden">
-      {/* Background animations - similar to homepage */}
-      <div className="fixed inset-0 -z-10">
-        <div className="absolute inset-0 animate-gradient bg-gradient-dark" />
-        <div 
-          className="absolute inset-0 animate-gradient opacity-30 bg-[radial-gradient(circle_at_50%_50%,rgba(75,75,75,0.3),transparent_70%)]" 
-          style={{ animationDelay: '-5s' }} 
-        />
-        <div 
-          className="absolute inset-0 animate-gradient opacity-20 bg-[radial-gradient(circle_at_0%_0%,rgba(100,100,100,0.2),transparent_50%)]" 
-          style={{ animationDelay: '-10s' }} 
-        />
-      </div>
-
+    <main className="flex min-h-screen flex-col relative overflow-hidden">
+      {/* Background with multiple gradient layers */}
+      <div className="relative flex place-items-center before:absolute before:h-[300px] before:w-[480px] before:-translate-x-1/2 before:rounded-full before:bg-gradient-radial before:from-red-600 before:to-transparent before:blur-2xl before:content-[''] after:absolute after:-z-20 after:h-[180px] after:w-[240px] after:translate-x-1/3 after:bg-gradient-conic after:from-red-900 after:via-red-700 after:blur-2xl after:content-[''] before:dark:bg-gradient-to-br before:dark:from-transparent before:dark:to-red-700 before:dark:opacity-10 after:dark:from-red-900 after:dark:via-[#ff4655] after:dark:opacity-40 before:lg:h-[360px] z-[-1]" />
+      
+      <div className="fixed inset-0 -z-10 bg-gradient-to-b from-[#1a0000] via-black to-black opacity-90" />
+      
       <div className="container mx-auto px-4 py-8">
-        {/* Profile Card */}
-        <Card className="mb-8 bg-white/10 backdrop-blur-xl border-white/20 overflow-hidden">
-          <CardContent className="p-6">
-            <div className="flex items-start gap-6">
-              {/* Player Card */}
-              <div className="relative size-32 rounded-lg bg-gradient-to-br from-red-500/20 to-purple-500/20 backdrop-blur-sm">
-                <div className="absolute inset-0 bg-black/20 rounded-lg" />
-              </div>
+        {/* Controls Section */}
+        <div className="mb-8 flex flex-col gap-4">
+          {/* Player Name Input */}
+          <div className="space-y-2">
+            <Label htmlFor="playerName" className="text-[#ff4655]">Player Name</Label>
+            <Input 
+              id="playerName"
+              placeholder="Enter player name"
+              className="bg-black/40 border-[#ff4655]/20 text-white placeholder:text-[#ff4655]/40
+                focus-visible:border-[#ff4655]/50 focus-visible:ring-[#ff4655]/20"
+              defaultValue="Sentinel"
+            />
+          </div>
 
-              {/* Profile Info */}
-              <div className="flex-1">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <AnimatedGradientText>
-                      <h1 className="text-4xl font-bold mb-2">Sentinel</h1>
-                    </AnimatedGradientText>
-                    <p className="text-gray-400 text-lg">#VALOR</p>
-                  </div>
-
-                  {/* Filters */}
-                  <div className="flex gap-4">
-                    <Select defaultValue="all">
-                      <SelectTrigger className="w-40">
-                        <SelectValue placeholder="Select act" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All Acts</SelectItem>
-                        <SelectItem value="current">Episode 7 Act 3</SelectItem>
-                        <SelectItem value="previous">Episode 7 Act 2</SelectItem>
-                      </SelectContent>
-                    </Select>
-
-                    <Select defaultValue="comp">
-                      <SelectTrigger className="w-40">
-                        <SelectValue placeholder="Select mode" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="comp">Competitive</SelectItem>
-                        <SelectItem value="unrated">Unrated</SelectItem>
-                        <SelectItem value="spike">Spike Rush</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-              </div>
+          {/* Filters Row */}
+          <div className="flex gap-4">
+            <div className="flex-1">
+              <Label htmlFor="act" className="text-[#ff4655] block mb-2">Act</Label>
+              <Select defaultValue="all">
+                <SelectTrigger 
+                  id="act"
+                  className="w-full bg-black/40 border-[#ff4655]/20 text-white
+                    focus:border-[#ff4655]/50 focus:ring-[#ff4655]/20"
+                >
+                  <SelectValue placeholder="Select act" />
+                </SelectTrigger>
+                <SelectContent className="bg-[#0F1923] border-[#ff4655]/20">
+                  <SelectGroup>
+                    <SelectItem value="all" className="text-white focus:bg-[#ff4655]/20 focus:text-white">All Acts</SelectItem>
+                    <SelectItem value="current" className="text-white focus:bg-[#ff4655]/20 focus:text-white">Episode 7 Act 3</SelectItem>
+                    <SelectItem value="previous" className="text-white focus:bg-[#ff4655]/20 focus:text-white">Episode 7 Act 2</SelectItem>
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
             </div>
-          </CardContent>
-        </Card>
 
-        {/* Tracker Score */}
-        <Card className="mb-8 bg-white/10 backdrop-blur-xl border-white/20">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="text-lg text-gray-400 mb-1">Tracker Score</h2>
-                <div className="text-3xl font-bold">
-                  <NumberTicker value={2750} />
-                </div>
-              </div>
-              <ShimmerButton className="bg-red-500/10">
-                View Detailed Stats
-              </ShimmerButton>
+            <div className="flex-1">
+              <Label htmlFor="mode" className="text-[#ff4655] block mb-2">Mode</Label>
+              <Select defaultValue="comp">
+                <SelectTrigger 
+                  id="mode"
+                  className="w-full bg-black/40 border-[#ff4655]/20 text-white
+                    focus:border-[#ff4655]/50 focus:ring-[#ff4655]/20"
+                >
+                  <SelectValue placeholder="Select mode" />
+                </SelectTrigger>
+                <SelectContent className="bg-[#0F1923] border-[#ff4655]/20">
+                  <SelectGroup>
+                    <SelectItem value="comp" className="text-white focus:bg-[#ff4655]/20 focus:text-white">Competitive</SelectItem>
+                    <SelectItem value="unrated" className="text-white focus:bg-[#ff4655]/20 focus:text-white">Unrated</SelectItem>
+                    <SelectItem value="spike" className="text-white focus:bg-[#ff4655]/20 focus:text-white">Spike Rush</SelectItem>
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
 
         {/* Rank Display */}
-        <div className="mb-8 grid grid-cols-2 gap-4">
-          <Card className="bg-white/10 backdrop-blur-xl border-white/20">
-            <CardContent className="p-6">
+        <div className="grid grid-cols-2 gap-4 mb-4">
+          <Card className="bg-black/20 border-[#ff4655]/10">
+            <CardContent className="p-4">
               <div className="flex items-center gap-4">
-                <div className="h-16 w-16 rounded-lg bg-gradient-to-br from-red-500/20 to-purple-500/20" />
+                <div className="h-16 w-16 rounded-lg bg-gradient-to-br from-[#ff4655]/20 to-transparent" />
                 <div>
-                  <h3 className="text-sm text-gray-400">Peak Rank</h3>
-                  <AnimatedGradientText>
-                    <span className="text-lg font-semibold">Diamond II</span>
-                  </AnimatedGradientText>
+                  <h3 className="text-sm text-[#ff4655] font-medium mb-1">Peak Rank</h3>
+                  <GradientText
+                    colors={["#ff4655", "#ff8f98", "#ff4655"]}
+                    animationSpeed={3}
+                    className="text-xl font-bold"
+                  >
+                    Diamond II
+                  </GradientText>
                 </div>
               </div>
             </CardContent>
           </Card>
-          <Card className="bg-white/10 backdrop-blur-xl border-white/20">
-            <CardContent className="p-6">
+
+          <Card className="bg-black/20 border-[#ff4655]/10">
+            <CardContent className="p-4">
               <div className="flex items-center gap-4">
-                <div className="h-16 w-16 rounded-lg bg-gradient-to-br from-red-500/20 to-purple-500/20" />
+                <div className="h-16 w-16 rounded-lg bg-gradient-to-br from-[#ff4655]/20 to-transparent" />
                 <div>
-                  <h3 className="text-sm text-gray-400">Current Rank</h3>
-                  <AnimatedGradientText>
-                    <span className="text-lg font-semibold">Diamond I</span>
-                  </AnimatedGradientText>
+                  <h3 className="text-sm text-[#ff4655] font-medium mb-1">Current Rank</h3>
+                  <GradientText
+                    colors={["#ff4655", "#ff8f98", "#ff4655"]}
+                    animationSpeed={3}
+                    className="text-xl font-bold"
+                  >
+                    Diamond I
+                  </GradientText>
                 </div>
               </div>
             </CardContent>
@@ -124,46 +119,77 @@ export default function ValorantStats() {
         </div>
 
         {/* Stats Grid */}
-        <div className="mb-8 grid grid-cols-4 gap-4">
-          {['Average Combat Score', 'K/D Ratio', 'Headshot %', 'Win Rate'].map((stat, index) => (
-            <Card key={stat} className="bg-white/10 backdrop-blur-xl border-white/20">
-              <CardContent className="p-6">
-                <h3 className="mb-2 text-sm text-gray-400">{stat}</h3>
+        <div className="grid grid-cols-4 gap-4 mb-4">
+          {[
+            {
+              label: 'Average Combat Score',
+              value: 245.0,
+              percentile: 15
+            },
+            {
+              label: 'K/D Ratio',
+              value: 1.25,
+              percentile: 22
+            },
+            {
+              label: 'Headshot %',
+              value: 28.5,
+              percentile: 18
+            },
+            {
+              label: 'Win Rate',
+              value: 54.2,
+              percentile: 25
+            }
+          ].map((stat, index) => (
+            <Card key={stat.label} className="bg-black/20 border-[#ff4655]/10">
+              <CardContent className="p-4">
+                <h3 className="text-sm text-[#ff4655] font-medium mb-1">{stat.label}</h3>
                 <div className="text-2xl font-bold text-white">
                   <NumberTicker 
-                    value={[245, 1.25, 28.5, 54.2][index]} 
+                    value={stat.value} 
                     decimalPlaces={index === 1 ? 2 : 1}
                   />
                 </div>
-                <p className="text-xs text-gray-400">Top {[15, 22, 18, 25][index]}%</p>
+                <p className="text-xs text-[#ff4655]/60">Top {stat.percentile}%</p>
               </CardContent>
             </Card>
           ))}
         </div>
 
         {/* Win/Loss Display */}
-        <div className="grid grid-cols-2 gap-4">
-          <Card className="bg-white/10 backdrop-blur-xl border-white/20">
-            <CardContent className="p-6">
-              <h3 className="mb-2 text-sm text-gray-400">Matches Won</h3>
+        <div className="grid grid-cols-2 gap-4 mb-4">
+          <Card className="bg-black/20 border-[#ff4655]/10">
+            <CardContent className="p-4">
+              <h3 className="text-sm text-[#ff4655] font-medium mb-1">Matches Won</h3>
               <div className="text-2xl font-bold text-white">
                 <NumberTicker value={32} />
               </div>
-              <p className="text-xs text-gray-400">Last 50 games</p>
+              <p className="text-xs text-[#ff4655]/60">Last 50 games</p>
             </CardContent>
           </Card>
 
-          <Card className="bg-white/10 backdrop-blur-xl border-white/20">
-            <CardContent className="p-6">
-              <h3 className="mb-2 text-sm text-gray-400">Matches Lost</h3>
+          <Card className="bg-black/20 border-[#ff4655]/10">
+            <CardContent className="p-4">
+              <h3 className="text-sm text-[#ff4655] font-medium mb-1">Matches Lost</h3>
               <div className="text-2xl font-bold text-white">
                 <NumberTicker value={18} />
               </div>
-              <p className="text-xs text-gray-400">Last 50 games</p>
+              <p className="text-xs text-[#ff4655]/60">Last 50 games</p>
             </CardContent>
           </Card>
         </div>
+
+        {/* Tracker Score */}
+        <Card className="bg-black/20 border-[#ff4655]/10">
+          <CardContent className="p-4">
+            <h2 className="text-sm text-[#ff4655] font-medium mb-1">Tracker Score</h2>
+            <div className="text-2xl font-bold text-white">
+              <NumberTicker value={2750} />
+            </div>
+          </CardContent>
+        </Card>
       </div>
-    </div>
+    </main>
   );
 }
