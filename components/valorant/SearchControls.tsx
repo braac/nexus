@@ -2,6 +2,7 @@
 
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { LoaderCircle } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -10,21 +11,26 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
 
 interface SearchControlsProps {
   onPlayerNameChange?: (name: string) => void;
   onActChange?: (act: string) => void;
   onModeChange?: (mode: string) => void;
+  onSearch?: () => void;
+  isLoading?: boolean;
 }
 
 const SearchControls = ({
   onPlayerNameChange,
   onActChange,
-  onModeChange
+  onModeChange,
+  onSearch,
+  isLoading = false
 }: SearchControlsProps) => {
   return (
-    <div className="mb-8 flex gap-4">
-      <div className="flex-1">
+    <div className="mb-8 flex gap-4 items-end">
+      <div className="flex-[2]">
         <Label htmlFor="playerName" className="text-[#ff4655]">Player Name</Label>
         <Input 
           id="playerName"
@@ -75,6 +81,22 @@ const SearchControls = ({
           </SelectContent>
         </Select>
       </div>
+
+      <Button 
+        disabled={isLoading} 
+        onClick={onSearch}
+        className="bg-[#ff4655] hover:bg-[#ff4655]/90 text-white"
+      >
+        {isLoading && (
+          <LoaderCircle
+            className="-ms-1 me-2 h-4 w-4 animate-[spin_0.9s_linear_infinite]"
+            size={16}
+            strokeWidth={2}
+            aria-hidden="true"
+          />
+        )}
+        Search
+      </Button>
     </div>
   );
 };

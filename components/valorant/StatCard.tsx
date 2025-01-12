@@ -28,7 +28,7 @@ const StatCard = ({
           colors={["#ff4655", "#ff8f98", "#ff4655"]}
           animationSpeed={3}
           className="text-xl font-bold"
-          interactive={false} // Explicitly set to false to prevent pointer cursor
+          interactive={false}
         >
           {value}
         </GradientText>
@@ -42,6 +42,19 @@ const StatCard = ({
             decimalPlaces={decimalPlaces}
           />
         ) : value}
+      </div>
+    );
+  };
+
+  const PercentileDisplay = () => {
+    if (!percentile) return null;
+    return (
+      <div className="text-xs text-[#ff4655]/60">
+        Top <NumberTicker 
+          value={percentile} 
+          decimalPlaces={0}
+          className="inline-block text-inherit"
+        />%
       </div>
     );
   };
@@ -88,7 +101,7 @@ const StatCard = ({
           <>
             <h3 className="text-sm text-[#ff4655] font-medium mb-1">{label}</h3>
             <ValueDisplay />
-            {percentile && <p className="text-xs text-[#ff4655]/60">Top {percentile}%</p>}
+            <PercentileDisplay />
           </>
         )}
       </CardContent>

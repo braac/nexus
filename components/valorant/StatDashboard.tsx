@@ -1,5 +1,6 @@
 'use client';
 
+import { memo } from 'react';
 import StatCard from './StatCard';
 
 interface RankData {
@@ -26,7 +27,7 @@ interface StatDashboardProps {
   trackerScore: number;
 }
 
-const StatDashboard = ({
+const StatDashboard = memo(({
   rankData,
   statsData,
   matchData,
@@ -103,6 +104,8 @@ const StatDashboard = ({
       />
     </div>
   );
-};
+});
+
+StatDashboard.displayName = 'StatDashboard';
 
 export default StatDashboard;
