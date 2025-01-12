@@ -1,11 +1,12 @@
-// app/api/valorant/profile/route.ts
 import { trackerAPI } from '@/services/tracker-api';
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 
-export async function GET(request: Request) {
+export const dynamic = 'force-dynamic'; // This makes the route dynamic
+
+export async function GET(request: NextRequest) {
   try {
-    // Get and validate query parameters
-    const { searchParams } = new URL(request.url);
+    // Get and validate query parameters using NextRequest
+    const searchParams = request.nextUrl.searchParams;
     const name = searchParams.get('name');
     const tag = searchParams.get('tag');
     const mode = searchParams.get('mode') || 'competitive';
