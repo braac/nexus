@@ -33,27 +33,38 @@ const StatCard = ({
           className="text-xl font-bold"
           interactive={false}
         >
-          {value}
+          {value?.toString() || '0'}
         </GradientText>
       );
     }
-    return (
-      <div className={`${size === 'large' ? 'text-2xl' : 'text-xl'} font-bold text-white`}>
-        {typeof value === 'number' ? (
+
+    const displayValue = typeof value === 'string' ? parseFloat(value) : value;
+
+    if (!isNaN(displayValue) && typeof displayValue === 'number') {
+      return (
+        <div className={`${size === 'large' ? 'text-2xl' : 'text-xl'} font-bold text-white`}>
           <NumberTicker 
-            value={value} 
+            value={displayValue} 
             decimalPlaces={decimalPlaces}
           />
-        ) : value}
+        </div>
+      );
+    }
+
+    return (
+      <div className={`${size === 'large' ? 'text-2xl' : 'text-xl'} font-bold text-white`}>
+        {value?.toString() || '0'}
       </div>
     );
   };
 
   const PercentileDisplay = () => {
-    if (typeof percentile === 'undefined') return null;
+    if (typeof percentile === 'undefined' || percentile === null) return null;
+
     return (
       <div className="text-xs text-[#ff4655]/60 mt-1">
-        Top <NumberTicker 
+        Top{' '}
+        <NumberTicker 
           value={percentile} 
           decimalPlaces={1}
           className="inline-block text-inherit"

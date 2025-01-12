@@ -2,6 +2,8 @@
 
 import { memo } from 'react';
 import StatCard from './StatCard';
+import { Card, CardContent } from "@/components/ui/card";
+import Image from 'next/image';
 import type { ProfileResponse, SeasonData } from '@/services/tracker-api';
 
 interface StatDashboardProps {
@@ -14,8 +16,14 @@ interface StatDashboardProps {
 const StatDashboard = memo(({ data }: StatDashboardProps) => {
   const currentSeason = data.seasonData?.[0];
   const displayStats = currentSeason?.stats || data.profile.stats;
-  // Get percentiles from the main profile stats
   const percentileStats = data.profile.stats;
+
+  console.log('Stats Dashboard Data:', {
+    currentSeason,
+    displayStats,
+    profileStats: data.profile.stats,
+    trnScore: displayStats?.trnPerformanceScore
+  });
 
   if (!displayStats) {
     return (
@@ -27,6 +35,41 @@ const StatDashboard = memo(({ data }: StatDashboardProps) => {
 
   return (
     <div className="space-y-4">
+      {/* Profile Card */}
+      <Card className="bg-white/5 backdrop-blur-sm border-[#ff4655]/10">
+        <CardContent className="p-6 flex items-center gap-6">
+          <div className="relative w-32 h-32 rounded-lg overflow-hidden bg-gradient-to-br from-[#ff4655]/10 to-transparent">
+            {data.profile.platformInfo.avatarUrl ? (
+              <Image
+                src={data.profile.platformInfo.avatarUrl}
+                alt="Player Avatar"
+                fill
+                className="object-cover"
+              />
+            ) : (
+              <div className="w-full h-full bg-[#ff4655]/5 flex items-center justify-center">
+                <span className="text-4xl text-[#ff4655]/20">?</span>
+              </div>
+            )}
+          </div>
+          <div className="flex-1">
+            <h2 className="text-2xl font-bold text-white mb-2">
+              {data.profile.platformInfo.platformUserHandle}
+            </h2>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <p className="text-sm text-[#ff4655]">Playtime</p>
+                <p className="text-lg text-white">{displayStats.timePlayed.displayValue}</p>
+              </div>
+              <div>
+                <p className="text-sm text-[#ff4655]">Matches Played</p>
+                <p className="text-lg text-white">{displayStats.matchesPlayed.displayValue}</p>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Rank Display */}
       <div className="grid grid-cols-2 gap-4">
         <StatCard
@@ -97,8 +140,9 @@ const StatDashboard = memo(({ data }: StatDashboardProps) => {
         />
         <StatCard
           label="TRN Score"
-          value={parseInt(displayStats.trnPerformanceScore.displayValue)}
-          percentile={percentileStats?.trnPerformanceScore.percentile}
+          value={displayStats.trnPerformanceScore?.displayValue ? 
+            parseInt(displayStats.trnPerformanceScore.displayValue) : 0}
+          percentile={percentileStats?.trnPerformanceScore?.percentile}
           decimalPlaces={0}
         />
       </div>

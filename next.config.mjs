@@ -9,6 +9,11 @@ const nextConfig = {
         },
         {
           protocol: 'https',
+          hostname: 'titles.trackercdn.com',
+          pathname: '/valorant-api/**',
+        },
+        {
+          protocol: 'https',
           hostname: 'static-cdn.jtvnw.net',
           pathname: '/badges/**',
         }

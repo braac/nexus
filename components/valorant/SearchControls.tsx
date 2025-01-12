@@ -31,6 +31,21 @@ export default function SearchControls({
 }: SearchControlsProps) {
     const [playerInput, setPlayerInput] = useState('');
     const [tagInput, setTagInput] = useState('');
+    const [selectedMode, setSelectedMode] = useState('Auto');
+
+    // Only include modes supported by the Tracker Network API
+    const modes = [
+        'Auto',
+        'Competitive',
+        'Unrated',
+        'Swiftplay',
+        'Spike Rush',
+        'Deathmatch',
+        'Escalation',
+        'Team Deathmatch',
+        'Replication',
+        'Snowball Fight'
+    ];
 
     const handlePlayerInput = (value: string) => {
         setPlayerInput(value);
@@ -46,6 +61,11 @@ export default function SearchControls({
     const handleTagInput = (value: string) => {
         setTagInput(value);
         onPlayerNameChange(playerInput, value);
+    };
+
+    const handleModeChange = (value: string) => {
+        setSelectedMode(value);
+        onModeChange(value);
     };
 
     return (
@@ -78,40 +98,50 @@ export default function SearchControls({
 
                 <div className="flex gap-4">
                     <div className="flex-1">
-                        <Label htmlFor="act" className="text-[#ff4655]">Act</Label>
-                        <Select defaultValue="current" onValueChange={onActChange}>
+                        <Label htmlFor="mode" className="text-[#ff4655]">Mode</Label>
+                        <Select defaultValue="Auto" onValueChange={handleModeChange}>
                             <SelectTrigger 
-                                id="act"
-                                className="w-full bg-white/5 backdrop-blur-sm border-[#ff4655]/20 text-white
+                                id="mode"
+                                className="bg-white/5 backdrop-blur-sm border-[#ff4655]/20 text-white
                                     focus:border-[#ff4655]/50 focus:ring-[#ff4655]/20"
                             >
-                                <SelectValue placeholder="Select act" />
+                                <SelectValue placeholder="Mode" />
                             </SelectTrigger>
                             <SelectContent className="bg-black/95 backdrop-blur-xl border-[#ff4655]/20">
                                 <SelectGroup>
-                                    <SelectItem value="current" className="text-white focus:bg-[#ff4655]/20 focus:text-white">Current Act</SelectItem>
-                                    <SelectItem value="previous" className="text-white focus:bg-[#ff4655]/20 focus:text-white">Previous Act</SelectItem>
-                                    <SelectItem value="all" className="text-white focus:bg-[#ff4655]/20 focus:text-white">All Acts</SelectItem>
+                                    {modes.map(mode => (
+                                        <SelectItem 
+                                            key={mode} 
+                                            value={mode}
+                                            className="text-white focus:bg-[#ff4655]/20 focus:text-white"
+                                        >
+                                            {mode}
+                                        </SelectItem>
+                                    ))}
                                 </SelectGroup>
                             </SelectContent>
                         </Select>
                     </div>
 
                     <div className="flex-1">
-                        <Label htmlFor="mode" className="text-[#ff4655]">Mode</Label>
-                        <Select defaultValue="competitive" onValueChange={onModeChange}>
+                        <Label htmlFor="season" className="text-[#ff4655]">Season</Label>
+                        <Select 
+                            defaultValue="Auto"
+                            onValueChange={onActChange}
+                            disabled={selectedMode === 'Auto'}
+                        >
                             <SelectTrigger 
-                                id="mode"
-                                className="w-full bg-white/5 backdrop-blur-sm border-[#ff4655]/20 text-white
+                                id="season"
+                                className="bg-white/5 backdrop-blur-sm border-[#ff4655]/20 text-white
                                     focus:border-[#ff4655]/50 focus:ring-[#ff4655]/20"
                             >
-                                <SelectValue placeholder="Select mode" />
+                                <SelectValue placeholder="Season" />
                             </SelectTrigger>
                             <SelectContent className="bg-black/95 backdrop-blur-xl border-[#ff4655]/20">
                                 <SelectGroup>
-                                    <SelectItem value="competitive" className="text-white focus:bg-[#ff4655]/20 focus:text-white">Competitive</SelectItem>
-                                    <SelectItem value="unrated" className="text-white focus:bg-[#ff4655]/20 focus:text-white">Unrated</SelectItem>
-                                    <SelectItem value="spikerush" className="text-white focus:bg-[#ff4655]/20 focus:text-white">Spike Rush</SelectItem>
+                                    <SelectItem value="Auto" className="text-white focus:bg-[#ff4655]/20 focus:text-white">
+                                        Auto
+                                    </SelectItem>
                                 </SelectGroup>
                             </SelectContent>
                         </Select>
@@ -125,8 +155,6 @@ export default function SearchControls({
                         {isLoading && (
                             <LoaderCircle
                                 className="-ms-1 me-2 h-4 w-4 animate-[spin_0.9s_linear_infinite]"
-                                size={16}
-                                strokeWidth={2}
                                 aria-hidden="true"
                             />
                         )}
