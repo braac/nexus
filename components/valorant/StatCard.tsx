@@ -28,6 +28,7 @@ const StatCard = ({
           colors={["#ff4655", "#ff8f98", "#ff4655"]}
           animationSpeed={3}
           className="text-xl font-bold"
+          interactive={false} // Explicitly set to false to prevent pointer cursor
         >
           {value}
         </GradientText>
