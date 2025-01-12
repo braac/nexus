@@ -1,3 +1,4 @@
+// components/valorant/StatCard.tsx
 'use client';
 
 import { Card, CardContent } from "@/components/ui/card";
@@ -105,13 +106,15 @@ const StatCard = ({
       <CardContent className="p-4 relative">
         {size === 'large' ? (
           <div className="flex items-center gap-4">
-            <div className="h-16 w-16 rounded-lg bg-gradient-to-br from-[#ff4655]/10 to-transparent relative">
+            <div className="relative h-16 w-16 rounded-lg bg-gradient-to-br from-[#ff4655]/10 to-transparent">
               {iconUrl && (
                 <Image
                   src={iconUrl}
                   alt={`${value} rank icon`}
                   fill
+                  sizes="64px"
                   className="object-contain p-1"
+                  priority
                 />
               )}
             </div>

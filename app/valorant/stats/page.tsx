@@ -1,3 +1,4 @@
+// app/valorant/stats/page.tsx
 'use client';
 
 import { useState } from 'react';
@@ -17,15 +18,31 @@ interface StatsData {
   seasonData?: SeasonData[];
 }
 
+interface Season {
+  id: string;
+  name: string;
+}
+
+interface ApiResponse {
+  status: string;
+  data: {
+    profile: ProfileResponse;
+    seasonData?: SeasonData[];
+    seasons?: Season[];
+  };
+  error?: string;
+}
+
 export default function ValorantStatsPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
   const [statsData, setStatsData] = useState<StatsData | null>(null);
+  const [seasons, setSeasons] = useState<Season[]>([]);
   const [searchParams, setSearchParams] = useState({
     playerName: '',
     tag: '',
-    act: 'current',
-    mode: 'competitive'
+    act: 'Auto',
+    mode: 'Auto'
   });
 
   const handleSearch = async () => {
@@ -38,24 +55,40 @@ export default function ValorantStatsPage() {
     setError(null);
 
     try {
-      const response = await fetch(`/api/valorant/profile?name=${encodeURIComponent(searchParams.playerName)}&tag=${encodeURIComponent(searchParams.tag)}&mode=${searchParams.mode}&seasonId=${searchParams.act}`);
+      const queryParams = new URLSearchParams({
+        name: searchParams.playerName,
+        tag: searchParams.tag,
+        mode: searchParams.mode
+      });
+
+      if (searchParams.act !== 'Auto') {
+        queryParams.append('seasonId', searchParams.act);
+      }
+
+      const response = await fetch(`/api/valorant/profile?${queryParams}`);
       
       if (!response.ok) {
         const errorData = await response.json();
         throw { message: errorData.error, status: response.status };
       }
 
-      const data = await response.json();
-      if (data.status === 'success' && data.data.profile) {
+      const data: ApiResponse = await response.json();
+      if (data.status === 'success') {
         setStatsData({
           profile: data.data.profile,
           seasonData: data.data.seasonData
         });
+        
+        // Update seasons from API response
+        if (data.data.seasons && Array.isArray(data.data.seasons)) {
+          setSeasons(data.data.seasons);
+        }
       } else {
         throw { message: data.error || 'Failed to fetch stats', status: 500 };
       }
     } catch (err) {
       setError(err as Error);
+      setStatsData(null);
     } finally {
       setIsLoading(false);
     }
@@ -70,6 +103,7 @@ export default function ValorantStatsPage() {
           onModeChange={(mode) => setSearchParams(prev => ({ ...prev, mode }))}
           onSearch={handleSearch}
           isLoading={isLoading}
+          seasons={seasons}
         />
 
         {error && (
@@ -79,7 +113,7 @@ export default function ValorantStatsPage() {
           </Alert>
         )}
 
-        {statsData && <StatDashboard data={statsData} />}
+        {statsData && <StatDashboard data={statsData} mode={searchParams.mode} />}
       </div>
     </main>
   );

@@ -1,3 +1,4 @@
+// components/valorant/StatDashboard.tsx
 'use client';
 
 import { memo } from 'react';
@@ -11,19 +12,14 @@ interface StatDashboardProps {
     profile: ProfileResponse;
     seasonData?: SeasonData[];
   };
+  mode: string;
 }
 
-const StatDashboard = memo(({ data }: StatDashboardProps) => {
-  const currentSeason = data.seasonData?.[0];
-  const displayStats = currentSeason?.stats || data.profile.stats;
-  const percentileStats = data.profile.stats;
-
-  console.log('Stats Dashboard Data:', {
-    currentSeason,
-    displayStats,
-    profileStats: data.profile.stats,
-    trnScore: displayStats?.trnPerformanceScore
-  });
+const StatDashboard = memo(({ data, mode }: StatDashboardProps) => {
+  // Use either the standard profile stats or season stats based on mode
+  const displayStats = mode === 'Auto' 
+    ? data.profile.stats 
+    : data.seasonData?.[0]?.stats;
 
   if (!displayStats) {
     return (
@@ -44,7 +40,9 @@ const StatDashboard = memo(({ data }: StatDashboardProps) => {
                 src={data.profile.platformInfo.avatarUrl}
                 alt="Player Avatar"
                 fill
+                sizes="128px"
                 className="object-cover"
+                priority
               />
             ) : (
               <div className="w-full h-full bg-[#ff4655]/5 flex items-center justify-center">
@@ -93,25 +91,25 @@ const StatDashboard = memo(({ data }: StatDashboardProps) => {
         <StatCard
           label="Damage/Round"
           value={parseFloat(displayStats.damagePerRound.displayValue)}
-          percentile={percentileStats?.damagePerRound.percentile}
+          percentile={displayStats.damagePerRound.percentile}
           decimalPlaces={1}
         />
         <StatCard
           label="K/D Ratio"
           value={parseFloat(displayStats.kDRatio.displayValue)}
-          percentile={percentileStats?.kDRatio.percentile}
+          percentile={displayStats.kDRatio.percentile}
           decimalPlaces={2}
         />
         <StatCard
           label="Headshot %"
           value={parseFloat(displayStats.headshotsPercentage.displayValue)}
-          percentile={percentileStats?.headshotsPercentage.percentile}
+          percentile={displayStats.headshotsPercentage.percentile}
           decimalPlaces={1}
         />
         <StatCard
           label="Win Rate"
           value={parseFloat(displayStats.matchesWinPct.displayValue)}
-          percentile={percentileStats?.matchesWinPct.percentile}
+          percentile={displayStats.matchesWinPct.percentile}
           decimalPlaces={1}
         />
       </div>
@@ -121,13 +119,13 @@ const StatDashboard = memo(({ data }: StatDashboardProps) => {
         <StatCard
           label="Matches Won"
           value={parseInt(displayStats.matchesWon.displayValue)}
-          percentile={percentileStats?.matchesWon.percentile}
+          percentile={displayStats.matchesWon.percentile}
           decimalPlaces={0}
         />
         <StatCard
           label="Matches Lost"
           value={parseInt(displayStats.matchesLost.displayValue)}
-          percentile={percentileStats?.matchesLost.percentile}
+          percentile={displayStats.matchesLost.percentile}
           decimalPlaces={0}
         />
       </div>
@@ -142,7 +140,7 @@ const StatDashboard = memo(({ data }: StatDashboardProps) => {
           label="TRN Score"
           value={displayStats.trnPerformanceScore?.displayValue ? 
             parseInt(displayStats.trnPerformanceScore.displayValue) : 0}
-          percentile={percentileStats?.trnPerformanceScore?.percentile}
+          percentile={displayStats.trnPerformanceScore?.percentile}
           decimalPlaces={0}
         />
       </div>

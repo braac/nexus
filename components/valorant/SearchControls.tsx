@@ -1,3 +1,4 @@
+// components/valorant/SearchControls.tsx
 'use client';
 
 import React, { useState } from 'react';
@@ -20,6 +21,7 @@ interface SearchControlsProps {
     onModeChange: (mode: string) => void;
     onSearch: () => void;
     isLoading: boolean;
+    seasons?: Array<{id: string, name: string}>;
 }
 
 export default function SearchControls({ 
@@ -27,7 +29,8 @@ export default function SearchControls({
     onActChange,
     onModeChange,
     onSearch,
-    isLoading
+    isLoading,
+    seasons = []
 }: SearchControlsProps) {
     const [playerInput, setPlayerInput] = useState('');
     const [tagInput, setTagInput] = useState('');
@@ -45,7 +48,7 @@ export default function SearchControls({
         'Team Deathmatch',
         'Replication',
         'Snowball Fight'
-    ];
+    ] as const;
 
     const handlePlayerInput = (value: string) => {
         setPlayerInput(value);
@@ -67,6 +70,9 @@ export default function SearchControls({
         setSelectedMode(value);
         onModeChange(value);
     };
+
+    // Filter out any seasons with missing id or name
+    const validSeasons = seasons.filter(season => season && season.id && season.name);
 
     return (
         <div className="mb-8 space-y-4">
@@ -109,9 +115,9 @@ export default function SearchControls({
                             </SelectTrigger>
                             <SelectContent className="bg-black/95 backdrop-blur-xl border-[#ff4655]/20">
                                 <SelectGroup>
-                                    {modes.map(mode => (
+                                    {modes.map((mode) => (
                                         <SelectItem 
-                                            key={mode} 
+                                            key={`mode-${mode.toLowerCase().replace(/\s+/g, '-')}`}
                                             value={mode}
                                             className="text-white focus:bg-[#ff4655]/20 focus:text-white"
                                         >
@@ -139,9 +145,22 @@ export default function SearchControls({
                             </SelectTrigger>
                             <SelectContent className="bg-black/95 backdrop-blur-xl border-[#ff4655]/20">
                                 <SelectGroup>
-                                    <SelectItem value="Auto" className="text-white focus:bg-[#ff4655]/20 focus:text-white">
+                                    <SelectItem 
+                                        key="season-auto" 
+                                        value="Auto" 
+                                        className="text-white focus:bg-[#ff4655]/20 focus:text-white"
+                                    >
                                         Auto
                                     </SelectItem>
+                                    {validSeasons.map((season, index) => (
+                                        <SelectItem 
+                                            key={`season-${season.id || index}`}
+                                            value={season.id}
+                                            className="text-white focus:bg-[#ff4655]/20 focus:text-white"
+                                        >
+                                            {season.name}
+                                        </SelectItem>
+                                    ))}
                                 </SelectGroup>
                             </SelectContent>
                         </Select>
