@@ -47,12 +47,37 @@ const StatCard = ({
 
   return (
     <Card className="relative bg-white/5 backdrop-blur-sm border-[#ff4655]/10 overflow-hidden group">
-      <div className="absolute inset-0 bg-gradient-to-br from-[#ff4655]/10 via-[#ff4655]/5 to-transparent opacity-75 group-hover:opacity-100 transition-opacity" />
-      <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/[0.03] to-transparent translate-x-full group-hover:translate-x-[-100%] transition-transform duration-1000" />
+      {/* Gradient layer that bleeds from edges */}
+      <div className="absolute inset-0">
+        {/* Radial gradient from corners */}
+        <div className="absolute inset-0 opacity-[0.04] transition-opacity duration-300 ease-in-out group-hover:opacity-[0.1]"
+             style={{
+               background: `
+                 radial-gradient(circle at 0 0, #ff4655 0%, transparent 85%),
+                 radial-gradient(circle at 100% 0, #ff4655 0%, transparent 85%),
+                 radial-gradient(circle at 0 100%, #ff4655 0%, transparent 85%),
+                 radial-gradient(circle at 100% 100%, #ff4655 0%, transparent 85%)
+               `
+             }}
+        />
+        
+        {/* Linear gradients from edges */}
+        <div className="absolute inset-0 opacity-[0.03] transition-opacity duration-300 ease-in-out group-hover:opacity-[0.08]"
+             style={{
+               background: `
+                 linear-gradient(90deg, #ff4655 0%, transparent 70%),
+                 linear-gradient(-90deg, #ff4655 0%, transparent 70%),
+                 linear-gradient(0deg, #ff4655 0%, transparent 70%),
+                 linear-gradient(180deg, #ff4655 0%, transparent 70%)
+               `
+             }}
+        />
+      </div>
+      
       <CardContent className="p-4 relative">
         {size === 'large' ? (
           <div className="flex items-center gap-4">
-            <div className="h-16 w-16 rounded-lg bg-gradient-to-br from-[#ff4655]/20 to-transparent" />
+            <div className="h-16 w-16 rounded-lg bg-gradient-to-br from-[#ff4655]/10 to-transparent" />
             <div>
               <h3 className="text-sm text-[#ff4655] font-medium mb-1">{label}</h3>
               <ValueDisplay />
@@ -62,7 +87,7 @@ const StatCard = ({
           <>
             <h3 className="text-sm text-[#ff4655] font-medium mb-1">{label}</h3>
             <ValueDisplay />
-            {percentile && <p className="text-xs text-[#ff4655]/60">Top {percentile}%</p>}
+            {percentile && <p className="text-sm text-[#ff4655]/60">Top {percentile}%</p>}
           </>
         )}
       </CardContent>
