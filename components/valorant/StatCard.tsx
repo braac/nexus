@@ -50,12 +50,12 @@ const StatCard = ({
   };
 
   const PercentileDisplay = () => {
-    if (!percentile) return null;
+    if (typeof percentile === 'undefined') return null;
     return (
-      <div className="text-xs text-[#ff4655]/60">
+      <div className="text-xs text-[#ff4655]/60 mt-1">
         Top <NumberTicker 
           value={percentile} 
-          decimalPlaces={0}
+          decimalPlaces={1}
           className="inline-block text-inherit"
         />%
       </div>

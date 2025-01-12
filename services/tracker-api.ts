@@ -193,7 +193,7 @@ interface RankData {
     private extractStat(stat?: { displayValue?: string; percentile?: number }): StatData {
       return {
         displayValue: stat?.displayValue || '0',
-        percentile: stat?.percentile || 0
+        percentile: stat?.percentile || undefined
       };
     }
   

@@ -13,9 +13,11 @@ interface StatDashboardProps {
 
 const StatDashboard = memo(({ data }: StatDashboardProps) => {
   const currentSeason = data.seasonData?.[0];
-  const stats = currentSeason?.stats || data.profile.stats;
+  const displayStats = currentSeason?.stats || data.profile.stats;
+  // Get percentiles from the main profile stats
+  const percentileStats = data.profile.stats;
 
-  if (!stats) {
+  if (!displayStats) {
     return (
       <div className="text-center text-gray-400">
         No stats available for this player
@@ -29,15 +31,15 @@ const StatDashboard = memo(({ data }: StatDashboardProps) => {
       <div className="grid grid-cols-2 gap-4">
         <StatCard
           label="Peak Rank"
-          value={stats.peakRank.tierName}
-          iconUrl={stats.peakRank.iconUrl}
+          value={displayStats.peakRank.tierName}
+          iconUrl={displayStats.peakRank.iconUrl}
           showGradientText
           size="large"
         />
         <StatCard
           label="Current Rank"
-          value={stats.rank.tierName}
-          iconUrl={stats.rank.iconUrl}
+          value={displayStats.rank.tierName}
+          iconUrl={displayStats.rank.iconUrl}
           showGradientText
           size="large"
         />
@@ -47,26 +49,26 @@ const StatDashboard = memo(({ data }: StatDashboardProps) => {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <StatCard
           label="Damage/Round"
-          value={parseFloat(stats.damagePerRound.displayValue)}
-          percentile={stats.damagePerRound.percentile}
+          value={parseFloat(displayStats.damagePerRound.displayValue)}
+          percentile={percentileStats?.damagePerRound.percentile}
           decimalPlaces={1}
         />
         <StatCard
           label="K/D Ratio"
-          value={parseFloat(stats.kDRatio.displayValue)}
-          percentile={stats.kDRatio.percentile}
+          value={parseFloat(displayStats.kDRatio.displayValue)}
+          percentile={percentileStats?.kDRatio.percentile}
           decimalPlaces={2}
         />
         <StatCard
           label="Headshot %"
-          value={parseFloat(stats.headshotsPercentage.displayValue)}
-          percentile={stats.headshotsPercentage.percentile}
+          value={parseFloat(displayStats.headshotsPercentage.displayValue)}
+          percentile={percentileStats?.headshotsPercentage.percentile}
           decimalPlaces={1}
         />
         <StatCard
           label="Win Rate"
-          value={parseFloat(stats.matchesWinPct.displayValue)}
-          percentile={stats.matchesWinPct.percentile}
+          value={parseFloat(displayStats.matchesWinPct.displayValue)}
+          percentile={percentileStats?.matchesWinPct.percentile}
           decimalPlaces={1}
         />
       </div>
@@ -75,14 +77,14 @@ const StatDashboard = memo(({ data }: StatDashboardProps) => {
       <div className="grid grid-cols-2 gap-4">
         <StatCard
           label="Matches Won"
-          value={parseInt(stats.matchesWon.displayValue)}
-          percentile={stats.matchesWon.percentile}
+          value={parseInt(displayStats.matchesWon.displayValue)}
+          percentile={percentileStats?.matchesWon.percentile}
           decimalPlaces={0}
         />
         <StatCard
           label="Matches Lost"
-          value={parseInt(stats.matchesLost.displayValue)}
-          percentile={stats.matchesLost.percentile}
+          value={parseInt(displayStats.matchesLost.displayValue)}
+          percentile={percentileStats?.matchesLost.percentile}
           decimalPlaces={0}
         />
       </div>
@@ -91,13 +93,12 @@ const StatDashboard = memo(({ data }: StatDashboardProps) => {
       <div className="grid grid-cols-2 gap-4">
         <StatCard
           label="Time Played"
-          value={stats.timePlayed.displayValue}
-          showGradientText
+          value={displayStats.timePlayed.displayValue}
         />
         <StatCard
           label="TRN Score"
-          value={parseInt(stats.trnPerformanceScore.displayValue)}
-          percentile={stats.trnPerformanceScore.percentile}
+          value={parseInt(displayStats.trnPerformanceScore.displayValue)}
+          percentile={percentileStats?.trnPerformanceScore.percentile}
           decimalPlaces={0}
         />
       </div>
