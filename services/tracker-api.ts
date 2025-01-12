@@ -45,6 +45,34 @@ interface RankData {
     status: number;
   }
   
+  // Expanded interfaces for raw API data
+  interface RawPlatformInfo {
+    platformUserHandle?: string;
+    avatarUrl?: string;
+  }
+  
+  interface RawSegment {
+    type?: string;
+    stats?: Record<string, { displayValue?: string; percentile?: number; metadata?: Record<string, string> }>;
+  }
+  
+  interface RawProfileData {
+    data?: {
+      platformInfo?: RawPlatformInfo;
+      segments?: RawSegment[];
+    };
+  }
+  
+  interface RawSeasonData {
+    data?: Array<{
+      metadata?: {
+        name?: string;
+        actId?: string;
+      };
+      stats?: Record<string, { displayValue?: string; percentile?: number; metadata?: Record<string, string> }>;
+    }>;
+  }
+  
   class TrackerAPI {
     private readonly BASE_URL = 'https://api.tracker.network/api/v2/valorant/standard';
     private readonly DEFAULT_HEADERS = {
@@ -69,7 +97,7 @@ interface RankData {
           throw this.handleError(response.status);
         }
   
-        const data = await response.json();
+        const data: RawProfileData = await response.json();
         return this.processProfileData(data);
       } catch (error) {
         throw this.handleError(error);
@@ -79,8 +107,8 @@ interface RankData {
     /**
      * Processes raw profile data into our streamlined format
      */
-    private processProfileData(rawData: any): ProfileResponse {
-      const seasonSegment = rawData.data?.segments?.find((s: any) => s.type === 'season');
+    private processProfileData(rawData: RawProfileData): ProfileResponse {
+      const seasonSegment = rawData.data?.segments?.find(s => s.type === 'season');
   
       return {
         platformInfo: {
@@ -122,7 +150,7 @@ interface RankData {
           throw this.handleError(response.status);
         }
   
-        const data = await response.json();
+        const data: RawSeasonData = await response.json();
         return this.processSeasonData(data);
       } catch (error) {
         throw this.handleError(error);
@@ -132,14 +160,16 @@ interface RankData {
     /**
      * Processes raw season data into our streamlined format
      */
-    private processSeasonData(rawData: any): SeasonData[] {
+    private processSeasonData(rawData: RawSeasonData): SeasonData[] {
       if (!rawData?.data) return [];
   
       return rawData.data
-        .filter((season: any) => season.metadata?.name && season.stats)
-        .map((season: any) => ({
-          id: season.metadata.actId,
-          name: season.metadata.name,
+        .filter((season): season is NonNullable<typeof season> => 
+          !!season.metadata?.name && !!season.stats
+        )
+        .map(season => ({
+          id: season.metadata?.actId || '',
+          name: season.metadata?.name || '',
           stats: {
             timePlayed: this.extractStat(season.stats?.timePlayed),
             matchesPlayed: this.extractStat(season.stats?.matchesPlayed),
@@ -154,13 +184,13 @@ interface RankData {
             trnPerformanceScore: this.extractStat(season.stats?.trnPerformanceScore)
           }
         }))
-        .sort((a: SeasonData, b: SeasonData) => b.name.localeCompare(a.name));
+        .sort((a, b) => b.name.localeCompare(a.name));
     }
   
     /**
      * Helper method to extract stat values safely
      */
-    private extractStat(stat: any): StatData {
+    private extractStat(stat?: { displayValue?: string; percentile?: number }): StatData {
       return {
         displayValue: stat?.displayValue || '0',
         percentile: stat?.percentile || 0
@@ -170,7 +200,7 @@ interface RankData {
     /**
      * Helper method to extract rank data safely
      */
-    private extractRank(rank: any): RankData {
+    private extractRank(rank?: { metadata?: { tierName?: string; iconUrl?: string } }): RankData {
       return {
         tierName: rank?.metadata?.tierName || 'Unranked',
         iconUrl: rank?.metadata?.iconUrl || ''
