@@ -19,7 +19,7 @@ export default function TwitchChatViewer() {
     const [messages, setMessages] = useState<Message[]>([]);
     const [connected, setConnected] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    const [channel, setChannel] = useState('sodapoppin');
+    const [channel, setChannel] = useState('lostsunnyxo');
     const twitchWS = React.useRef<TwitchWebSocket>(TwitchWebSocket.getInstance());
 
     // Set up WebSocket connection and message handling
