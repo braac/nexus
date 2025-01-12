@@ -3,6 +3,7 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { GradientText } from "@/components/ui/gradient-text";
 import NumberTicker from "@/components/ui/number-ticker";
+import Image from "next/image";
 
 interface StatCardProps {
   label: string;
@@ -11,6 +12,7 @@ interface StatCardProps {
   decimalPlaces?: number;
   showGradientText?: boolean;
   size?: 'normal' | 'large';
+  iconUrl?: string;
 }
 
 const StatCard = ({
@@ -19,7 +21,8 @@ const StatCard = ({
   percentile,
   decimalPlaces = 1,
   showGradientText = false,
-  size = 'normal'
+  size = 'normal',
+  iconUrl
 }: StatCardProps) => {
   const ValueDisplay = () => {
     if (showGradientText) {
@@ -91,7 +94,16 @@ const StatCard = ({
       <CardContent className="p-4 relative">
         {size === 'large' ? (
           <div className="flex items-center gap-4">
-            <div className="h-16 w-16 rounded-lg bg-gradient-to-br from-[#ff4655]/10 to-transparent" />
+            <div className="h-16 w-16 rounded-lg bg-gradient-to-br from-[#ff4655]/10 to-transparent relative">
+              {iconUrl && (
+                <Image
+                  src={iconUrl}
+                  alt={`${value} rank icon`}
+                  fill
+                  className="object-contain p-1"
+                />
+              )}
+            </div>
             <div>
               <h3 className="text-sm text-[#ff4655] font-medium mb-1">{label}</h3>
               <ValueDisplay />
