@@ -1,8 +1,9 @@
+// components/valorant/ValorantStats.tsx
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import SearchControls from './SearchControls';
-import StatDashboard from './StatDashboard';
+import SearchControls from '@/components/valorant/SearchControls';
+import StatDashboard from '@/components/valorant/StatDashboard';
 
 const ValorantStats = () => {
   const [playerName, setPlayerName] = useState('Sentinel');
@@ -48,20 +49,7 @@ const ValorantStats = () => {
   };
 
   return (
-    <main className="flex min-h-screen flex-col relative overflow-hidden">
-      {/* Background animations */}
-      <div className="fixed inset-0 -z-10">
-        <div className="absolute inset-0 bg-gradient-to-b from-red-500 via-yellow-500 to-blue-500" />
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(255,70,85,0.15),transparent_70%)] opacity-75 animate-pulse" 
-          style={{ animationDuration: '4s' }} />
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_25%_25%,rgba(255,70,85,0.12),transparent_50%)] opacity-60 animate-pulse" 
-          style={{ animationDuration: '6s', animationDelay: '1s' }} />
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_75%_75%,rgba(255,70,85,0.08),transparent_50%)] opacity-50 animate-pulse" 
-          style={{ animationDuration: '8s', animationDelay: '2s' }} />
-        <div className="absolute inset-0 bg-gradient-conic from-transparent via-[#ff4655]/5 to-transparent opacity-30 animate-spin" 
-          style={{ animationDuration: '10s' }} />
-      </div>
-      
+    <main className="flex min-h-screen flex-col">
       <div className="container mx-auto px-4 py-8">
         {/* Search Controls */}
         <SearchControls 
