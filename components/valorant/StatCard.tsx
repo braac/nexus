@@ -88,7 +88,7 @@ const StatCard = ({
           <>
             <h3 className="text-sm text-[#ff4655] font-medium mb-1">{label}</h3>
             <ValueDisplay />
-            {percentile && <p className="text-sm text-[#ff4655]/60">Top {percentile}%</p>}
+            {percentile && <p className="text-xs text-[#ff4655]/60">Top {percentile}%</p>}
           </>
         )}
       </CardContent>
