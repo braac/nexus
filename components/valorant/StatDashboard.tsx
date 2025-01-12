@@ -3,49 +3,48 @@
 import { memo } from 'react';
 import StatCard from './StatCard';
 
-interface RankData {
-  peakRank: string;
-  currentRank: string;
-}
+// Sample mock data - in a real app, this would come from an API
+const DEFAULT_STATS = {
+  rank: {
+    peakRank: "Diamond II",
+    currentRank: "Diamond I"
+  },
+  performance: {
+    damagePerRound: 156.4,
+    kdRatio: 1.25,
+    headshotPercentage: 28.5,
+    winRate: 54.2
+  },
+  matches: {
+    won: 32,
+    lost: 18
+  },
+  trackerScore: 2750,
+  percentiles: {
+    damagePerRound: 15,
+    kdRatio: 22,
+    headshotPercentage: 18,
+    winRate: 25,
+    matchesWon: 12,
+    matchesLost: 8,
+    trackerScore: 5
+  }
+};
 
-interface StatsData {
-  combatScore: number;
-  kdRatio: number;
-  headshotPercentage: number;
-  winRate: number;
-}
-
-interface MatchData {
-  won: number;
-  lost: number;
-}
-
-interface StatDashboardProps {
-  rankData: RankData;
-  statsData: StatsData;
-  matchData: MatchData;
-  trackerScore: number;
-}
-
-const StatDashboard = memo(({
-  rankData,
-  statsData,
-  matchData,
-  trackerScore
-}: StatDashboardProps) => {
+const StatDashboard = memo(() => {
   return (
     <div className="space-y-4">
       {/* Rank Display */}
       <div className="grid grid-cols-2 gap-4">
         <StatCard
           label="Peak Rank"
-          value={rankData.peakRank}
+          value={DEFAULT_STATS.rank.peakRank}
           showGradientText
           size="large"
         />
         <StatCard
           label="Current Rank"
-          value={rankData.currentRank}
+          value={DEFAULT_STATS.rank.currentRank}
           showGradientText
           size="large"
         />
@@ -54,27 +53,27 @@ const StatDashboard = memo(({
       {/* Performance Stats Grid */}
       <div className="grid grid-cols-4 gap-4">
         <StatCard
-          label="Average Combat Score"
-          value={statsData.combatScore}
-          percentile={15}
+          label="Damage/Round"
+          value={DEFAULT_STATS.performance.damagePerRound}
+          percentile={DEFAULT_STATS.percentiles.damagePerRound}
           decimalPlaces={1}
         />
         <StatCard
           label="K/D Ratio"
-          value={statsData.kdRatio}
-          percentile={22}
+          value={DEFAULT_STATS.performance.kdRatio}
+          percentile={DEFAULT_STATS.percentiles.kdRatio}
           decimalPlaces={2}
         />
         <StatCard
           label="Headshot %"
-          value={statsData.headshotPercentage}
-          percentile={18}
+          value={DEFAULT_STATS.performance.headshotPercentage}
+          percentile={DEFAULT_STATS.percentiles.headshotPercentage}
           decimalPlaces={1}
         />
         <StatCard
           label="Win Rate"
-          value={statsData.winRate}
-          percentile={25}
+          value={DEFAULT_STATS.performance.winRate}
+          percentile={DEFAULT_STATS.percentiles.winRate}
           decimalPlaces={1}
         />
       </div>
@@ -83,14 +82,14 @@ const StatDashboard = memo(({
       <div className="grid grid-cols-2 gap-4">
         <StatCard
           label="Matches Won"
-          value={matchData.won}
-          percentile={12}
+          value={DEFAULT_STATS.matches.won}
+          percentile={DEFAULT_STATS.percentiles.matchesWon}
           decimalPlaces={0}
         />
         <StatCard
           label="Matches Lost"
-          value={matchData.lost}
-          percentile={8}
+          value={DEFAULT_STATS.matches.lost}
+          percentile={DEFAULT_STATS.percentiles.matchesLost}
           decimalPlaces={0}
         />
       </div>
@@ -98,8 +97,8 @@ const StatDashboard = memo(({
       {/* Tracker Score */}
       <StatCard
         label="Tracker Score"
-        value={trackerScore}
-        percentile={5}
+        value={DEFAULT_STATS.trackerScore}
+        percentile={DEFAULT_STATS.percentiles.trackerScore}
         decimalPlaces={0}
       />
     </div>
