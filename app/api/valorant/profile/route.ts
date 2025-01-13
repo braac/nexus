@@ -1,6 +1,6 @@
 // app/api/valorant/profile/route.ts
 
-import { trackerAPI, type ApiError } from '@/services/valorant-api';
+import { valorantAPI } from '@/services/valorant-api';
 import { NextRequest, NextResponse } from 'next/server';
 
 export const dynamic = 'force-dynamic'; // Disable caching for this route
@@ -12,7 +12,8 @@ export async function GET(request: NextRequest) {
     const name = searchParams.get('name');
     const tag = searchParams.get('tag');
     const mode = searchParams.get('mode') || 'competitive';
-    const seasonId = searchParams.get('seasonId');
+    const rawSeasonId = searchParams.get('seasonId');
+    const seasonId = rawSeasonId || undefined;
 
     // Validate required parameters
     if (!name || !tag) {
@@ -25,55 +26,52 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Convert mode to proper playlist format
-    const playlist = trackerAPI.getPlaylistFromMode(mode);
-
     try {
-      // Get both profile and season data concurrently
-      const [profile, seasonData] = await Promise.all([
-        trackerAPI.getProfile(name, tag),
-        trackerAPI.getSeasonReport(name, tag, playlist)
-      ]);
+      // Get the profile data which now includes availableSeasons
+      const profile = await valorantAPI.getProfile(name, tag, mode, seasonId);
 
-      // Find specific season if seasonId is provided
-      const selectedSeason = seasonId 
-        ? seasonData.find(season => season.id === seasonId)
-        : seasonData[0]; // Default to most recent season
+      // Get the season report if not in Auto mode
+      let seasonData = [];
+      if (mode.toLowerCase() !== 'auto') {
+        const playlist = valorantAPI.getPlaylistFromMode(mode);
+        seasonData = await valorantAPI.getSeasonReport(name, tag, playlist);
+      }
+
+      // Find current season either from seasonId or take first available
+      const currentSeason = seasonId 
+        ? profile.availableSeasons.find(season => season.id === seasonId)
+        : profile.availableSeasons[0];
 
       return NextResponse.json({
         status: 'success',
         data: {
           profile,
-          seasonData: seasonData,
-          currentSeason: selectedSeason || null,
-          seasons: seasonData.map(season => ({
-            id: season.id,
-            name: season.name
-          }))
+          seasonData,
+          currentSeason,
+          seasons: profile.availableSeasons // Use seasons from profile instead of season report
         }
       });
 
     } catch (error) {
-      // Handle API errors with proper typing
-      const apiError = error as ApiError;
+      const err = error as Error;
       return NextResponse.json(
         { 
           status: 'error',
-          error: apiError.message || 'Failed to fetch player data'
+          error: err.message || 'Failed to fetch player data'
         },
-        { status: apiError.status || 500 }
+        { status: 500 }
       );
     }
 
   } catch (error) {
     // Handle unexpected errors
     console.error('Error in /api/valorant/profile:', error);
-    const unexpectedError = error as Error;
+    const err = error as Error;
     
     return NextResponse.json(
       { 
         status: 'error',
-        error: unexpectedError.message || 'An unexpected error occurred'
+        error: err.message || 'An unexpected error occurred'
       },
       { status: 500 }
     );

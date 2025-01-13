@@ -37,17 +37,17 @@ interface RawStats {
 
 interface RawSegment {
   type: string;
-  stats: RawStats;
-}
-
-interface RawSeasonData {
-  metadata: {
-    name: string;
+  attributes?: {
+    season?: {
+      id: string;
+      name: string;
+      startTime?: string;
+    };
   };
-  attributes: {
-    act: string;
+  metadata?: {
+    name?: string;
   };
-  stats: RawStats;
+  stats?: RawStats;
 }
 
 // Essential type interfaces
@@ -71,6 +71,10 @@ export interface ProfileResponse {
     readonly avatarUrl: string;
   };
   readonly stats: PlayerStats | null;
+  readonly availableSeasons: Array<{
+    readonly id: string;
+    readonly name: string;
+  }>;
 }
 
 export interface SeasonData {
@@ -83,9 +87,6 @@ export interface ApiError {
   readonly message: string;
   readonly status: number;
 }
-
-type PlaylistMode = 'auto' | 'competitive' | 'unrated' | 'swiftplay' | 'spike rush' | 
-                    'deathmatch' | 'escalation' | 'team deathmatch' | 'replication' | 'snowball fight';
 
 class ValorantAPI {
   private readonly BASE_URL = 'https://api.tracker.network/api/v2/valorant/standard' as const;
@@ -105,34 +106,72 @@ class ValorantAPI {
 
   async getProfile(name: string, tag: string, mode = 'Auto', seasonId?: string): Promise<ProfileResponse> {
     const encodedTag = encodeURIComponent(`${name}#${tag}`);
-    const isAuto = mode.toLowerCase() === 'auto';
     
-    const url = new URL(
-      isAuto 
-        ? `${this.BASE_URL}/profile/riot/${encodedTag}`
-        : `${this.BASE_URL}/profile/riot/${encodedTag}/segments/season-report`
-    );
-
-    if (!isAuto) {
-      url.searchParams.append('playlist', this.getPlaylistFromMode(mode));
-    }
-    url.searchParams.append('source', 'overwolf-2');
-    url.searchParams.append('s', '1');
-
     try {
-      const response = await fetch(url.toString(), {
+      // Always fetch the standard profile first to get available seasons
+      const standardProfileUrl = new URL(`${this.BASE_URL}/profile/riot/${encodedTag}`);
+      standardProfileUrl.searchParams.append('source', 'overwolf-2');
+      standardProfileUrl.searchParams.append('s', '1');
+
+      const profileResponse = await fetch(standardProfileUrl.toString(), {
         headers: this.DEFAULT_HEADERS
       });
 
-      if (!response.ok) {
-        throw this.createError(response.status);
+      if (!profileResponse.ok) {
+        throw this.createError(profileResponse.status);
       }
 
-      const data = await response.json();
-      return isAuto ? this.processProfileData(data) : this.processSeasonReportData(data, seasonId);
+      const profileData = await profileResponse.json();
+      const availableSeasons = this.extractAvailableSeasons(profileData);
+
+      // If mode is Auto or no seasonId, use the standard profile data
+      if (mode.toLowerCase() === 'auto' || !seasonId) {
+        return {
+          ...this.processProfileData(profileData),
+          availableSeasons
+        };
+      }
+
+      // For specific seasons, fetch the season report
+      const seasonReportUrl = new URL(`${this.BASE_URL}/profile/riot/${encodedTag}/segments/season-report`);
+      seasonReportUrl.searchParams.append('playlist', this.getPlaylistFromMode(mode));
+      seasonReportUrl.searchParams.append('source', 'overwolf-2');
+      seasonReportUrl.searchParams.append('s', '1');
+
+      const seasonResponse = await fetch(seasonReportUrl.toString(), {
+        headers: this.DEFAULT_HEADERS
+      });
+
+      if (!seasonResponse.ok) {
+        throw this.createError(seasonResponse.status);
+      }
+
+      const seasonData = await seasonResponse.json();
+      return {
+        ...this.processSeasonReportData(seasonData, seasonId),
+        availableSeasons
+      };
+
     } catch (error) {
       throw this.handleError(error);
     }
+  }
+
+  private extractAvailableSeasons(profileData: any): Array<{ id: string; name: string }> {
+    const segments = profileData?.data?.segments;
+    if (!Array.isArray(segments)) return [];
+
+    return segments
+      .filter((segment: RawSegment): segment is RawSegment => 
+        segment.type === 'season' && 
+        segment.attributes?.season?.id != null &&
+        segment.attributes.season.name != null
+      )
+      .map(segment => ({
+        id: segment.attributes!.season!.id,
+        name: segment.attributes!.season!.name
+      }))
+      .sort((a, b) => b.id.localeCompare(a.id)); // Sort by season ID in descending order
   }
 
   async getSeasonReport(name: string, tag: string, playlist = 'competitive'): Promise<SeasonData[]> {
@@ -158,20 +197,12 @@ class ValorantAPI {
         throw new Error('Invalid season report data');
       }
 
-      interface RawSeasonDataPartial {
-        metadata?: { name?: string };
-        attributes?: { act?: string };
-        stats?: RawStats;
-      }
-
       return data.data
-        .filter((season: unknown): season is RawSeasonData => {
-          const s = season as RawSeasonDataPartial;
-          return Boolean(s?.metadata?.name) &&
-                 Boolean(s?.attributes?.act) &&
-                 Boolean(s?.stats);
-        })
-        .map((season: RawSeasonData) => ({
+        .filter((season): season is NonNullable<typeof season> => 
+          Boolean(season?.metadata?.name) &&
+          Boolean(season?.attributes?.act) &&
+          Boolean(season?.stats))
+        .map(season => ({
           id: season.attributes.act,
           name: season.metadata.name,
           stats: this.extractPlayerStats(season.stats)
@@ -181,7 +212,7 @@ class ValorantAPI {
     }
   }
 
-  private processProfileData(rawData: unknown): ProfileResponse {
+  private processProfileData(rawData: unknown): Omit<ProfileResponse, 'availableSeasons'> {
     if (!rawData || typeof rawData !== 'object') {
       throw new Error('Invalid response data');
     }
@@ -215,14 +246,18 @@ class ValorantAPI {
     };
   }
 
-  private processSeasonReportData(rawData: unknown, seasonId?: string): ProfileResponse {
+  private processSeasonReportData(rawData: unknown, seasonId?: string): Omit<ProfileResponse, 'availableSeasons'> {
     if (!rawData || typeof rawData !== 'object' || !('data' in rawData) || !Array.isArray(rawData.data)) {
       throw new Error('Invalid season report data');
     }
 
-    const data = rawData.data as RawSeasonData[];
+    const data = rawData.data.filter((season: any) => 
+      season?.metadata?.name &&
+      season?.stats
+    );
+
     const selectedSeason = seasonId
-      ? data.find(season => season.attributes?.act === seasonId)
+      ? data.find((season: any) => season.attributes?.act === seasonId)
       : data[0];
 
     if (!selectedSeason?.stats) {
@@ -277,7 +312,7 @@ class ValorantAPI {
   }
 
   getPlaylistFromMode(mode: string): string {
-    const playlists: Readonly<Record<PlaylistMode, string>> = {
+    const playlists: Readonly<Record<string, string>> = {
       'auto': 'competitive',
       'competitive': 'competitive',
       'unrated': 'unrated',
@@ -290,8 +325,8 @@ class ValorantAPI {
       'snowball fight': 'snowball'
     };
 
-    const normalizedMode = mode.toLowerCase() as PlaylistMode;
-    return playlists[normalizedMode] ?? mode.toLowerCase();
+    const normalizedMode = mode.toLowerCase();
+    return playlists[normalizedMode] ?? normalizedMode;
   }
 
   private createError(status: number): ApiError {
