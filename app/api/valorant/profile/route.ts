@@ -1,6 +1,6 @@
 // app/api/valorant/profile/route.ts
 
-import { trackerAPI, type ApiError } from '@/services/tracker-api';
+import { trackerAPI, type ApiError } from '@/services/valorant-api';
 import { NextRequest, NextResponse } from 'next/server';
 
 export const dynamic = 'force-dynamic'; // Disable caching for this route

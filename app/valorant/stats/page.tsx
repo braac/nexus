@@ -6,7 +6,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { AlertCircle } from 'lucide-react';
 import SearchControls from '@/components/valorant/SearchControls';
 import StatDashboard from '@/components/valorant/StatDashboard';
-import type { ProfileResponse, SeasonData } from '@/services/tracker-api';
+import type { ProfileResponse, SeasonData } from '@/services/valorant-api';
 
 interface Error {
   message: string;

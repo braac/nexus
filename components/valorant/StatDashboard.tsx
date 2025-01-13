@@ -5,7 +5,7 @@ import { memo } from 'react';
 import StatCard from './StatCard';
 import { Card, CardContent } from "@/components/ui/card";
 import Image from 'next/image';
-import type { ProfileResponse, SeasonData } from '@/services/tracker-api';
+import type { ProfileResponse, SeasonData } from '@/services/valorant-api';
 
 interface StatDashboardProps {
   data: {
