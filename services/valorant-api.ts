@@ -11,43 +11,65 @@ interface RankValue {
   readonly iconUrl: string;
 }
 
-// Raw data interfaces
-interface RawStat {
-  displayValue?: string;
-  percentile?: number;
-  metadata?: {
-    tierName?: string;
-    iconUrl?: string;
+// Raw API response types
+interface RawMetadata {
+  readonly name?: string;
+  readonly tierName?: string;
+  readonly iconUrl?: string;
+}
+
+interface RawAttributes {
+  readonly act?: string;
+  readonly season?: {
+    readonly id: string;
+    readonly name: string;
+    readonly startTime?: string;
   };
+}
+
+interface RawStat {
+  readonly displayValue?: string;
+  readonly percentile?: number;
+  readonly metadata?: RawMetadata;
 }
 
 interface RawStats {
-  timePlayed?: RawStat;
-  matchesPlayed?: RawStat;
-  rank?: RawStat;
-  peakRank?: RawStat;
-  damagePerRound?: RawStat;
-  kDRatio?: RawStat;
-  headshotsPercentage?: RawStat;
-  matchesWinPct?: RawStat;
-  matchesWon?: RawStat;
-  matchesLost?: RawStat;
-  trnPerformanceScore?: RawStat;
+  readonly timePlayed?: RawStat;
+  readonly matchesPlayed?: RawStat;
+  readonly rank?: RawStat;
+  readonly peakRank?: RawStat;
+  readonly damagePerRound?: RawStat;
+  readonly kDRatio?: RawStat;
+  readonly headshotsPercentage?: RawStat;
+  readonly matchesWinPct?: RawStat;
+  readonly matchesWon?: RawStat;
+  readonly matchesLost?: RawStat;
+  readonly trnPerformanceScore?: RawStat;
 }
 
 interface RawSegment {
-  type: string;
-  attributes?: {
-    season?: {
-      id: string;
-      name: string;
-      startTime?: string;
+  readonly type: string;
+  readonly attributes?: RawAttributes;
+  readonly metadata?: RawMetadata;
+  readonly stats?: RawStats;
+}
+
+interface RawProfileResponse {
+  readonly data?: {
+    readonly platformInfo?: {
+      readonly platformUserHandle?: string;
+      readonly avatarUrl?: string;
     };
+    readonly segments?: RawSegment[];
   };
-  metadata?: {
-    name?: string;
-  };
-  stats?: RawStats;
+}
+
+interface RawSeasonReport {
+  readonly data?: Array<{
+    readonly metadata?: RawMetadata;
+    readonly attributes?: RawAttributes;
+    readonly stats?: RawStats;
+  }>;
 }
 
 // Essential type interfaces
@@ -121,7 +143,7 @@ class ValorantAPI {
         throw this.createError(profileResponse.status);
       }
 
-      const profileData = await profileResponse.json();
+      const profileData = (await profileResponse.json()) as RawProfileResponse;
       const availableSeasons = this.extractAvailableSeasons(profileData);
 
       // If mode is Auto or no seasonId, use the standard profile data
@@ -146,7 +168,7 @@ class ValorantAPI {
         throw this.createError(seasonResponse.status);
       }
 
-      const seasonData = await seasonResponse.json();
+      const seasonData = (await seasonResponse.json()) as RawSeasonReport;
       return {
         ...this.processSeasonReportData(seasonData, seasonId),
         availableSeasons
@@ -157,19 +179,19 @@ class ValorantAPI {
     }
   }
 
-  private extractAvailableSeasons(profileData: any): Array<{ id: string; name: string }> {
+  private extractAvailableSeasons(profileData: RawProfileResponse): Array<{ id: string; name: string }> {
     const segments = profileData?.data?.segments;
     if (!Array.isArray(segments)) return [];
 
     return segments
-      .filter((segment: RawSegment): segment is RawSegment => 
+      .filter((segment): segment is RawSegment & { attributes: { season: { id: string; name: string } } } => 
         segment.type === 'season' && 
         segment.attributes?.season?.id != null &&
         segment.attributes.season.name != null
       )
       .map(segment => ({
-        id: segment.attributes!.season!.id,
-        name: segment.attributes!.season!.name
+        id: segment.attributes.season.id,
+        name: segment.attributes.season.name
       }))
       .sort((a, b) => b.id.localeCompare(a.id)); // Sort by season ID in descending order
   }
@@ -191,17 +213,22 @@ class ValorantAPI {
         throw this.createError(response.status);
       }
 
-      const data = await response.json();
+      const data = (await response.json()) as RawSeasonReport;
       
       if (!data?.data || !Array.isArray(data.data)) {
         throw new Error('Invalid season report data');
       }
 
       return data.data
-        .filter((season): season is NonNullable<typeof season> => 
+        .filter((season): season is NonNullable<typeof season> & {
+          metadata: { name: string };
+          attributes: { act: string };
+          stats: RawStats;
+        } => 
           Boolean(season?.metadata?.name) &&
           Boolean(season?.attributes?.act) &&
-          Boolean(season?.stats))
+          Boolean(season?.stats)
+        )
         .map(season => ({
           id: season.attributes.act,
           name: season.metadata.name,
@@ -212,26 +239,12 @@ class ValorantAPI {
     }
   }
 
-  private processProfileData(rawData: unknown): Omit<ProfileResponse, 'availableSeasons'> {
-    if (!rawData || typeof rawData !== 'object') {
-      throw new Error('Invalid response data');
-    }
-
-    const data = rawData as {
-      data?: {
-        platformInfo?: {
-          platformUserHandle?: string;
-          avatarUrl?: string;
-        };
-        segments?: RawSegment[];
-      };
-    };
-    
-    if (!data.data?.segments) {
+  private processProfileData(rawData: RawProfileResponse): Omit<ProfileResponse, 'availableSeasons'> {
+    if (!rawData?.data?.segments) {
       throw new Error('Invalid response data structure');
     }
 
-    const seasonSegment = data.data.segments.find(s => s.type === 'season');
+    const seasonSegment = rawData.data.segments.find(s => s.type === 'season');
 
     if (!seasonSegment?.stats) {
       throw new Error('No season data found');
@@ -239,25 +252,25 @@ class ValorantAPI {
 
     return {
       platformInfo: {
-        platformUserHandle: data.data.platformInfo?.platformUserHandle ?? '',
-        avatarUrl: data.data.platformInfo?.avatarUrl ?? ''
+        platformUserHandle: rawData.data.platformInfo?.platformUserHandle ?? '',
+        avatarUrl: rawData.data.platformInfo?.avatarUrl ?? ''
       },
       stats: this.extractPlayerStats(seasonSegment.stats)
     };
   }
 
-  private processSeasonReportData(rawData: unknown, seasonId?: string): Omit<ProfileResponse, 'availableSeasons'> {
-    if (!rawData || typeof rawData !== 'object' || !('data' in rawData) || !Array.isArray(rawData.data)) {
+  private processSeasonReportData(rawData: RawSeasonReport, seasonId?: string): Omit<ProfileResponse, 'availableSeasons'> {
+    if (!rawData?.data || !Array.isArray(rawData.data)) {
       throw new Error('Invalid season report data');
     }
 
-    const data = rawData.data.filter((season: any) => 
-      season?.metadata?.name &&
-      season?.stats
+    const data = rawData.data.filter((season): season is NonNullable<typeof season> => 
+      Boolean(season?.metadata?.name) &&
+      Boolean(season?.stats)
     );
 
     const selectedSeason = seasonId
-      ? data.find((season: any) => season.attributes?.act === seasonId)
+      ? data.find(season => season.attributes?.act === seasonId)
       : data[0];
 
     if (!selectedSeason?.stats) {

@@ -5,7 +5,31 @@ import { NextRequest, NextResponse } from 'next/server';
 
 export const dynamic = 'force-dynamic'; // Disable caching for this route
 
-export async function GET(request: NextRequest) {
+// API Response Types
+interface ErrorResponse {
+  status: 'error';
+  error: string;
+}
+
+interface SuccessResponse {
+  status: 'success';
+  data: {
+    profile: Awaited<ReturnType<typeof valorantAPI.getProfile>>;
+    seasonData?: Awaited<ReturnType<typeof valorantAPI.getSeasonReport>>;
+    currentSeason?: {
+      id: string;
+      name: string;
+    } | null;
+    seasons: Array<{
+      id: string;
+      name: string;
+    }>;
+  };
+}
+
+type ApiResponse = ErrorResponse | SuccessResponse;
+
+export async function GET(request: NextRequest): Promise<NextResponse<ApiResponse>> {
   try {
     // Get and validate query parameters
     const searchParams = request.nextUrl.searchParams;
@@ -21,7 +45,7 @@ export async function GET(request: NextRequest) {
         { 
           status: 'error',
           error: 'Name and tag are required' 
-        },
+        } satisfies ErrorResponse,
         { status: 400 }
       );
     }
@@ -31,7 +55,7 @@ export async function GET(request: NextRequest) {
       const profile = await valorantAPI.getProfile(name, tag, mode, seasonId);
 
       // Get the season report if not in Auto mode
-      let seasonData = [];
+      let seasonData = undefined;
       if (mode.toLowerCase() !== 'auto') {
         const playlist = valorantAPI.getPlaylistFromMode(mode);
         seasonData = await valorantAPI.getSeasonReport(name, tag, playlist);
@@ -48,9 +72,9 @@ export async function GET(request: NextRequest) {
           profile,
           seasonData,
           currentSeason,
-          seasons: profile.availableSeasons // Use seasons from profile instead of season report
+          seasons: profile.availableSeasons
         }
-      });
+      } satisfies SuccessResponse);
 
     } catch (error) {
       const err = error as Error;
@@ -58,7 +82,7 @@ export async function GET(request: NextRequest) {
         { 
           status: 'error',
           error: err.message || 'Failed to fetch player data'
-        },
+        } satisfies ErrorResponse,
         { status: 500 }
       );
     }
@@ -72,7 +96,7 @@ export async function GET(request: NextRequest) {
       { 
         status: 'error',
         error: err.message || 'An unexpected error occurred'
-      },
+      } satisfies ErrorResponse,
       { status: 500 }
     );
   }
