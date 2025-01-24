@@ -19,6 +19,7 @@ interface RawProfileResponse {
       readonly platformUserHandle?: string;
       readonly avatarUrl?: string;
     };
+    readonly metadata?: RawMetadata;
     readonly segments?: Array<{
       readonly type: string;
       readonly attributes?: {
@@ -30,7 +31,6 @@ interface RawProfileResponse {
       readonly stats?: RawStats;
     }>;
   };
-  readonly metadata?: RawMetadata;
 }
 
 interface RawMetadata {
@@ -279,11 +279,11 @@ export interface ProfileResponse {
     readonly defaultPlatform: string;
     readonly defaultPlaylist: string;
     readonly defaultSeason: string;
+    readonly availableSeasons: Array<{
+      readonly id: string;
+      readonly name: string;
+    }>;
   };
-  readonly availableSeasons: Array<{
-    readonly id: string;
-    readonly name: string;
-  }>;
 }
 
 // Response types for season report endpoint
@@ -519,6 +519,20 @@ export class ValorantAPI {
     };
   }
 
+  private extractMetadata(data: RawProfileResponse | undefined): {
+    activeShard: string;
+    defaultPlatform: string;
+    defaultPlaylist: string;
+    defaultSeason: string;
+  } {
+    return {
+      activeShard: data?.data?.metadata?.activeShard ?? 'unknown',
+      defaultPlatform: data?.data?.metadata?.defaultPlatform ?? '',
+      defaultPlaylist: data?.data?.metadata?.defaultPlaylist ?? '',
+      defaultSeason: data?.data?.metadata?.defaultSeason ?? ''
+    };
+  }
+
   private extractRankInfo(stat?: RawStat): RankInfo {
     return {
       tierName: stat?.metadata?.tierName ?? 'Unranked',
@@ -546,9 +560,9 @@ export class ValorantAPI {
       // Safely get segments with fallbacks
       const segments = data?.data?.segments ?? [];
       const firstSegment = segments[0];
-      const metadata = data?.metadata ?? {};
       const stats = firstSegment?.stats ?? {};
       const platformInfo = data?.data?.platformInfo ?? {};
+      const metadata = this.extractMetadata(data);
 
       // Extract and sort seasons with null checks
       const seasons = segments
@@ -572,7 +586,7 @@ export class ValorantAPI {
           platformUserIdentifier: platformInfo.platformUserHandle ?? `${name}#${tag}`,
           avatarUrl: platformInfo.avatarUrl ?? ''
         },
-        region: metadata.activeShard ?? 'unknown',
+        region: metadata.activeShard,
         stats: {
           timePlayed: this.extractStatValue(stats.timePlayed),
           matchesPlayed: this.extractStatValue(stats.matchesPlayed),
@@ -595,11 +609,11 @@ export class ValorantAPI {
           trnPerformanceScore: this.extractStatValue(stats.trnPerformanceScore)
         },
         metadata: {
-          defaultPlatform: metadata.defaultPlatform ?? 'pc',
-          defaultPlaylist: metadata.defaultPlaylist ?? 'competitive',
-          defaultSeason: metadata.defaultSeason ?? ''
+          defaultPlatform: metadata.defaultPlatform,
+          defaultPlaylist: metadata.defaultPlaylist,
+          defaultSeason: metadata.defaultSeason,
+          availableSeasons: seasons
         },
-        availableSeasons: seasons
       };
     } catch (error) {
       throw this.handleError(error);
