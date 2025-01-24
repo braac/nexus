@@ -15,13 +15,28 @@ import {
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 
+interface Season {
+  id: string;
+  name: string;
+  stats: {
+    rank: {
+      tierName: string;
+      iconUrl: string;
+    };
+    peakRank: {
+      tierName: string;
+      iconUrl: string;
+    };
+  };
+}
+
 interface SearchControlsProps {
     onPlayerNameChange: (name: string, tag: string) => void;
     onActChange: (act: string) => void;
     onModeChange: (mode: string) => void;
     onSearch: () => void;
     isLoading: boolean;
-    seasons?: Array<{id: string, name: string}>;
+    seasons?: Season[];
 }
 
 export default function SearchControls({ 
@@ -69,10 +84,28 @@ export default function SearchControls({
     const handleModeChange = (value: string) => {
         setSelectedMode(value);
         onModeChange(value);
+        
+        // Reset season selection to Auto when changing modes
+        onActChange('Auto');
     };
 
-    // Filter out any seasons with missing id or name
-    const validSeasons = seasons.filter(season => season && season.id && season.name);
+    // Sort seasons by newest first (assuming the format E{X}: A{Y})
+    const sortedSeasons = [...seasons].sort((a, b) => {
+        // Extract episode and act numbers using regex
+        const extractNumbers = (name: string) => {
+            const match = name.match(/E(\d+):\s*A(\d+)/);
+            return match ? { episode: parseInt(match[1]), act: parseInt(match[2]) } : { episode: 0, act: 0 };
+        };
+
+        const aNumbers = extractNumbers(a.name);
+        const bNumbers = extractNumbers(b.name);
+
+        // Sort by episode first, then by act
+        if (aNumbers.episode !== bNumbers.episode) {
+            return bNumbers.episode - aNumbers.episode;
+        }
+        return bNumbers.act - aNumbers.act;
+    });
 
     return (
         <div className="mb-8 space-y-4">
@@ -139,11 +172,12 @@ export default function SearchControls({
                             <SelectTrigger 
                                 id="season"
                                 className="bg-white/5 backdrop-blur-sm border-[#ff4655]/20 text-white
-                                    focus:border-[#ff4655]/50 focus:ring-[#ff4655]/20"
+                                    focus:border-[#ff4655]/50 focus:ring-[#ff4655]/20 disabled:cursor-not-allowed
+                                    disabled:opacity-50"
                             >
                                 <SelectValue placeholder="Season" />
                             </SelectTrigger>
-                            <SelectContent className="bg-black/95 backdrop-blur-xl border-[#ff4655]/20">
+                            <SelectContent className="bg-black/95 backdrop-blur-xl border-[#ff4655]/20 max-h-[300px]">
                                 <SelectGroup>
                                     <SelectItem 
                                         key="season-auto" 
@@ -152,13 +186,13 @@ export default function SearchControls({
                                     >
                                         Auto
                                     </SelectItem>
-                                    {validSeasons.map((season, index) => (
+                                    {sortedSeasons.map((season) => (
                                         <SelectItem 
-                                            key={`season-${season.id || index}`}
+                                            key={`season-${season.id}`}
                                             value={season.id}
                                             className="text-white focus:bg-[#ff4655]/20 focus:text-white"
                                         >
-                                            {season.name}
+                                            {season.name} - {season.stats.peakRank.tierName}
                                         </SelectItem>
                                     ))}
                                 </SelectGroup>
