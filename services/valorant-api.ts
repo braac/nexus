@@ -542,12 +542,17 @@ export class ValorantAPI {
       }
 
       const data = await response.json() as RawProfileResponse;
-      const segments = data.data?.segments ?? [];
-      const metadata = data.metadata as RawMetadata;
+      
+      // Safely get segments with fallbacks
+      const segments = data?.data?.segments ?? [];
+      const firstSegment = segments[0];
+      const metadata = data?.metadata ?? {};
+      const stats = firstSegment?.stats ?? {};
+      const platformInfo = data?.data?.platformInfo ?? {};
 
-      // Extract and sort seasons
+      // Extract and sort seasons with null checks
       const seasons = segments
-        .filter((segment: { type: string }) => segment.type === 'season')
+        .filter(segment => segment?.type === 'season' && segment.attributes?.season)
         .map(segment => ({
           id: segment.attributes?.season?.id ?? '',
           name: segment.attributes?.season?.name ?? ''
@@ -560,15 +565,14 @@ export class ValorantAPI {
             : bNumbers.act - aNumbers.act;
         });
 
-      const stats = segments[0]?.stats ?? {};
-
+      // Construct response with safe fallbacks
       return {
         platformInfo: {
-          platformUserHandle: data.data?.platformInfo?.platformUserHandle ?? '',
-          platformUserIdentifier: data.data?.platformInfo?.platformUserHandle ?? '',
-          avatarUrl: data.data?.platformInfo?.avatarUrl ?? ''
+          platformUserHandle: platformInfo.platformUserHandle ?? `${name}#${tag}`,
+          platformUserIdentifier: platformInfo.platformUserHandle ?? `${name}#${tag}`,
+          avatarUrl: platformInfo.avatarUrl ?? ''
         },
-        region: metadata.activeShard ?? '',
+        region: metadata.activeShard ?? 'unknown',
         stats: {
           timePlayed: this.extractStatValue(stats.timePlayed),
           matchesPlayed: this.extractStatValue(stats.matchesPlayed),
@@ -591,8 +595,8 @@ export class ValorantAPI {
           trnPerformanceScore: this.extractStatValue(stats.trnPerformanceScore)
         },
         metadata: {
-          defaultPlatform: metadata.defaultPlatform ?? '',
-          defaultPlaylist: metadata.defaultPlaylist ?? '',
+          defaultPlatform: metadata.defaultPlatform ?? 'pc',
+          defaultPlaylist: metadata.defaultPlaylist ?? 'competitive',
           defaultSeason: metadata.defaultSeason ?? ''
         },
         availableSeasons: seasons
@@ -600,7 +604,7 @@ export class ValorantAPI {
     } catch (error) {
       throw this.handleError(error);
     }
-  }
+}
 
   async getSeasonReport(name: string, tag: string, gamemode: string): Promise<SeasonData[]> {
     const encodedTag = encodeURIComponent(`${name}#${tag}`);
