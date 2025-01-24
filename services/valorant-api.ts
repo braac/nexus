@@ -287,7 +287,7 @@ export interface ProfileResponse {
 }
 
 // Response types for season report endpoint
-interface SeasonStats extends ProfileStats {
+interface SeasonStats extends Omit<ProfileStats, 'assists' | 'trnPerformanceScore' | 'kDARatio' | 'aces'> {
   readonly scorePerRound: StatValue;
 }
 
@@ -690,17 +690,13 @@ export class ValorantAPI {
               matchesWinPct: this.extractStatValue(stats?.matchesWinPct),
               kills: this.extractStatValue(stats?.kills),
               deaths: this.extractStatValue(stats?.deaths),
-              assists: this.extractStatValue(stats?.assists),
               kDRatio: this.extractStatValue(stats?.kDRatio),
-              kDARatio: this.extractStatValue(stats?.kDARatio),
               damagePerRound: this.extractStatValue(stats?.damagePerRound),
               headshotsPercentage: this.extractStatValue(stats?.headshotsPercentage),
               kAST: this.extractStatValue(stats?.kAST),
               mostKillsInMatch: this.extractStatValue(stats?.mostKillsInMatch),
-              aces: this.extractStatValue(stats?.aces),
               rank: this.extractRankInfo(stats?.rank),
               peakRank: this.extractRankInfo(stats?.peakRank),
-              trnPerformanceScore: this.extractStatValue(stats?.trnPerformanceScore),
               scorePerRound: this.extractStatValue(stats?.scorePerRound)
             }
           };
