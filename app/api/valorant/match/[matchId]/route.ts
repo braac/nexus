@@ -1,4 +1,4 @@
-// app/api/valorant/profile/route.ts
+// app/api/valorant/match/[matchId]/route.ts
 import { valorantAPI } from '@/services/valorant-api';
 import { NextRequest, NextResponse } from 'next/server';
 
@@ -11,28 +11,33 @@ interface ErrorResponse {
 
 interface SuccessResponse {
   status: 'success';
-  data: Awaited<ReturnType<typeof valorantAPI.getProfile>>;
+  data: Awaited<ReturnType<typeof valorantAPI.getMatchDetails>>;
 }
 
 type ApiResponse = ErrorResponse | SuccessResponse;
 
-export async function GET(request: NextRequest): Promise<NextResponse<ApiResponse>> {
-  try {
-    const searchParams = request.nextUrl.searchParams;
-    const name = searchParams.get('name');
-    const tag = searchParams.get('tag');
+interface RouteParams {
+  params: {
+    matchId: string;
+  };
+}
 
-    if (!name || !tag) {
+export async function GET(
+  request: NextRequest,
+  { params }: RouteParams
+): Promise<NextResponse<ApiResponse>> {
+  try {
+    if (!params.matchId) {
       return NextResponse.json(
         {
           status: 'error',
-          error: 'Name and tag are required'
+          error: 'Match ID is required'
         } satisfies ErrorResponse,
         { status: 400 }
       );
     }
 
-    const data = await valorantAPI.getProfile(name, tag);
+    const data = await valorantAPI.getMatchDetails(params.matchId);
     
     return NextResponse.json({
       status: 'success',

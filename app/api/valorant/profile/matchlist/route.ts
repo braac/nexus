@@ -1,4 +1,4 @@
-// app/api/valorant/profile/route.ts
+// app/api/valorant/profile/matchlist/route.ts
 import { valorantAPI } from '@/services/valorant-api';
 import { NextRequest, NextResponse } from 'next/server';
 
@@ -11,7 +11,7 @@ interface ErrorResponse {
 
 interface SuccessResponse {
   status: 'success';
-  data: Awaited<ReturnType<typeof valorantAPI.getProfile>>;
+  data: Awaited<ReturnType<typeof valorantAPI.getMatchList>>;
 }
 
 type ApiResponse = ErrorResponse | SuccessResponse;
@@ -21,6 +21,11 @@ export async function GET(request: NextRequest): Promise<NextResponse<ApiRespons
     const searchParams = request.nextUrl.searchParams;
     const name = searchParams.get('name');
     const tag = searchParams.get('tag');
+    const gamemode = searchParams.get('gamemode');
+    const season = searchParams.get('season');
+    const agent = searchParams.get('agent');
+    const map = searchParams.get('map');
+    const next = searchParams.get('next');
 
     if (!name || !tag) {
       return NextResponse.json(
@@ -32,7 +37,13 @@ export async function GET(request: NextRequest): Promise<NextResponse<ApiRespons
       );
     }
 
-    const data = await valorantAPI.getProfile(name, tag);
+    const data = await valorantAPI.getMatchList(name, tag, {
+      type: gamemode || undefined,
+      season: season || undefined,
+      agent: agent || undefined,
+      map: map || undefined,
+      page: next ? parseInt(next) : undefined
+    });
     
     return NextResponse.json({
       status: 'success',
