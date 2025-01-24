@@ -93,11 +93,11 @@ interface RawMatch {
       readonly deaths: RawStat;
       readonly assists: RawStat;
       readonly kdRatio: RawStat;
-      readonly hsAccuracy: RawStat;
+      readonly headshotsPercentage: RawStat;
       readonly damagePerRound: RawStat;
       readonly damageDeltaPerRound: RawStat;
       readonly scorePerRound: RawStat;
-      readonly kast: RawStat;
+      readonly kAST: RawStat;
       readonly trnPerformanceScore: RawStat;
       readonly rank: RawStat;
     };
@@ -166,8 +166,8 @@ interface RawPlayerSegment {
     readonly defuses: RawStat;
     readonly firstKills: RawStat;
     readonly firstDeaths: RawStat;
-    readonly hsAccuracy: RawStat;
-    readonly kast: RawStat;
+    readonly headshotsPercentage: RawStat;
+    readonly kAST: RawStat;
     readonly trnPerformanceScore: RawStat;
   };
 }
@@ -792,11 +792,11 @@ export class ValorantAPI {
             deaths: this.extractStatValue(match.segments[0].stats.deaths),
             assists: this.extractStatValue(match.segments[0].stats.assists),
             kDRatio: this.extractStatValue(match.segments[0].stats.kdRatio),
-            headshotsPercentage: this.extractStatValue(match.segments[0].stats.hsAccuracy),
+            headshotsPercentage: this.extractStatValue(match.segments[0].stats.headshotsPercentage),
             damagePerRound: this.extractStatValue(match.segments[0].stats.damagePerRound),
             damageDeltaPerRound: this.extractStatValue(match.segments[0].stats.damageDeltaPerRound),
             scorePerRound: this.extractStatValue(match.segments[0].stats.scorePerRound),
-            kAST: this.extractStatValue(match.segments[0].stats.kast),
+            kAST: this.extractStatValue(match.segments[0].stats.kAST),
             trnPerformanceScore: this.extractStatValue(match.segments[0].stats.trnPerformanceScore),
             rank: this.extractRankInfo(match.segments[0].stats.rank)
           }
@@ -870,8 +870,8 @@ export class ValorantAPI {
             defuses: this.extractStatValue(player.stats.defuses),
             firstKills: this.extractStatValue(player.stats.firstKills),
             firstDeaths: this.extractStatValue(player.stats.firstDeaths),
-            headshotPercentage: this.extractStatValue(player.stats.hsAccuracy),
-            kAST: this.extractStatValue(player.stats.kast),
+            headshotPercentage: this.extractStatValue(player.stats.headshotsPercentage),
+            kAST: this.extractStatValue(player.stats.kAST),
             trnPerformanceScore: this.extractStatValue(player.stats.trnPerformanceScore)
           }
         }));
