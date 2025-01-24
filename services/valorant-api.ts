@@ -201,6 +201,7 @@ interface StatValue {
 interface RankInfo {
   readonly tierName: string;
   readonly iconUrl: string;
+  readonly rating: string;
 }
 
 interface AgentInfo {
@@ -279,10 +280,6 @@ export interface ProfileResponse {
     readonly defaultPlatform: string;
     readonly defaultPlaylist: string;
     readonly defaultSeason: string;
-    readonly availableSeasons: Array<{
-      readonly id: string;
-      readonly name: string;
-    }>;
   };
 }
 
@@ -372,7 +369,7 @@ interface PlayerSummary {
   };
   readonly accountLevel: number;
   readonly matchRank: RankInfo & { displayValue: string };
-  readonly currentRank: RankInfo & { rating: number };
+  readonly currentRank: RankInfo & { rating: string };
   readonly stats: {
     readonly scorePerRound: StatValue;
     readonly kills: StatValue;
@@ -536,6 +533,7 @@ export class ValorantAPI {
   private extractRankInfo(stat?: RawStat): RankInfo {
     return {
       tierName: stat?.metadata?.tierName ?? 'Unranked',
+      rating: stat?.displayValue ?? '',
       iconUrl: stat?.metadata?.iconUrl ?? ''
     };
   }
@@ -563,21 +561,6 @@ export class ValorantAPI {
       const stats = firstSegment?.stats ?? {};
       const platformInfo = data?.data?.platformInfo ?? {};
       const metadata = this.extractMetadata(data);
-
-      // Extract and sort seasons with null checks
-      const seasons = segments
-        .filter(segment => segment?.type === 'season' && segment.attributes?.season)
-        .map(segment => ({
-          id: segment.attributes?.season?.id ?? '',
-          name: segment.attributes?.season?.name ?? ''
-        }))
-        .sort((a, b) => {
-          const aNumbers = this.extractSeasonNumbers(a.name);
-          const bNumbers = this.extractSeasonNumbers(b.name);
-          return bNumbers.episode !== aNumbers.episode
-            ? bNumbers.episode - aNumbers.episode
-            : bNumbers.act - aNumbers.act;
-        });
 
       // Construct response with safe fallbacks
       return {
@@ -612,7 +595,6 @@ export class ValorantAPI {
           defaultPlatform: metadata.defaultPlatform,
           defaultPlaylist: metadata.defaultPlaylist,
           defaultSeason: metadata.defaultSeason,
-          availableSeasons: seasons
         },
       };
     } catch (error) {
@@ -870,7 +852,7 @@ export class ValorantAPI {
           },
           currentRank: {
             ...this.extractRankInfo(player.stats.currRank),
-            rating: parseInt(player.stats.currRank.displayValue, 10)
+            rating: player.stats.currRank.displayValue
           },
           stats: {
             scorePerRound: this.extractStatValue(player.stats.scorePerRound),
