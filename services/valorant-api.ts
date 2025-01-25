@@ -274,12 +274,12 @@ export interface ProfileResponse {
     readonly platformUserIdentifier: string;
     readonly avatarUrl: string;
   };
-  readonly region: string;
   readonly stats: ProfileStats;
   readonly metadata: {
     readonly defaultPlatform: string;
     readonly defaultPlaylist: string;
     readonly defaultSeason: string;
+    readonly region: string;
   };
 }
 
@@ -569,7 +569,12 @@ export class ValorantAPI {
           platformUserIdentifier: platformInfo.platformUserHandle ?? `${name}#${tag}`,
           avatarUrl: platformInfo.avatarUrl ?? ''
         },
-        region: metadata.activeShard,
+        metadata: {
+          defaultPlatform: metadata.defaultPlatform,
+          defaultPlaylist: metadata.defaultPlaylist,
+          defaultSeason: metadata.defaultSeason,
+          region: metadata.activeShard
+        },
         stats: {
           timePlayed: this.extractStatValue(stats.timePlayed),
           matchesPlayed: this.extractStatValue(stats.matchesPlayed),
@@ -590,11 +595,6 @@ export class ValorantAPI {
           rank: this.extractRankInfo(stats.rank),
           peakRank: this.extractRankInfo(stats.peakRank),
           trnPerformanceScore: this.extractStatValue(stats.trnPerformanceScore)
-        },
-        metadata: {
-          defaultPlatform: metadata.defaultPlatform,
-          defaultPlaylist: metadata.defaultPlaylist,
-          defaultSeason: metadata.defaultSeason,
         },
       };
     } catch (error) {
