@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { MeshGradient } from "@paper-design/shaders-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { TwitchIcon } from '@/components/icons/twitch-icon';
@@ -14,11 +15,21 @@ export default function Page() {
   return (
     <div className="min-h-screen relative overflow-hidden text-white">
       {/* Background animations */}
-      <div className="fixed inset-0 -z-10">
-        <div className="absolute inset-0 animate-gradient bg-gradient-dark" />
-        <div className="absolute inset-0 animate-gradient opacity-30 bg-[radial-gradient(circle_at_50%_50%,rgba(75,75,75,0.3),transparent_70%)]" style={{ animationDelay: '-5s' }} />
-        <div className="absolute inset-0 animate-gradient opacity-20 bg-[radial-gradient(circle_at_0%_0%,rgba(100,100,100,0.2),transparent_50%)]" style={{ animationDelay: '-10s' }} />
-      </div>
+      <MeshGradient
+        color1="#0F0F1B"  // Very dark blue-black
+        color2="#1F1F3A"  // Dark navy blue
+        color3="#2A1F3D"  // Dark purple
+        color4="#1A1A2F"  // Dark blue-gray
+        speed={0.10}
+        style={{
+          position: "fixed",
+          top: 0,
+          left: 0,
+          width: "100vw",
+          height: "100vh",
+          zIndex: -1,
+        }}
+      />
 
       <div className="container mx-auto px-4">
         {/* Header */}

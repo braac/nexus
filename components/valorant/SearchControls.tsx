@@ -118,7 +118,7 @@ export default function SearchControls({
                             value={playerInput}
                             onChange={(e) => handlePlayerInput(e.target.value)}
                             placeholder="Enter player name"
-                            className="w-full bg-white/5 backdrop-blur-sm border-[#ff4655]/20 text-white placeholder:text-[#ff4655]/40
+                            className="w-full bg-white/5 backdrop-blur-sm border-[#ff4655]/20 text-white placeholder:text-white/40
                                 focus-visible:border-[#ff4655]/50 focus-visible:ring-[#ff4655]/20"
                         />
                     </div>
@@ -129,7 +129,7 @@ export default function SearchControls({
                             value={tagInput}
                             onChange={(e) => handleTagInput(e.target.value)}
                             placeholder="#TAG"
-                            className="w-full bg-white/5 backdrop-blur-sm border-[#ff4655]/20 text-white placeholder:text-[#ff4655]/40
+                            className="w-full bg-white/5 backdrop-blur-sm border-[#ff4655]/20 text-white placeholder:text-white/40
                                 focus-visible:border-[#ff4655]/50 focus-visible:ring-[#ff4655]/20"
                         />
                     </div>

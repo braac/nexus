@@ -1,475 +1,348 @@
 // services/valorant-api.ts
+import axios, { AxiosInstance, AxiosError } from 'axios';
+import { z } from 'zod';
+import { memoize } from 'lodash';
+import { DateTime } from 'luxon';
+import pino from 'pino';
 
-// Raw API response interfaces
-interface LifetimeData {
-  readonly type: string;
-  readonly stats?: {
-    readonly hours?: { displayValue?: string };
-    readonly matches?: { displayValue?: string };
-  };
-}
+// Initialize logger
+const logger = pino({
+  level: 'info',
+  transport: {
+    target: 'pino-pretty',
+    options: {
+      colorize: true
+    }
+  }
+});
 
-interface RawSeasonResponse {
-  readonly data?: Array<RawSeasonData | LifetimeData>;
-}
+// Base Zod Schemas
+const StatValueSchema = z.object({
+  displayValue: z.string(),
+  percentile: z.number().optional(),
+  metadata: z.object({
+    tierName: z.string().optional(),
+    iconUrl: z.string().optional()
+  }).optional()
+});
 
-interface RawProfileResponse {
-  readonly data?: {
-    readonly platformInfo?: {
-      readonly platformUserHandle?: string;
-      readonly avatarUrl?: string;
-    };
-    readonly metadata?: RawMetadata;
-    readonly segments?: Array<{
-      readonly type: string;
-      readonly attributes?: {
-        readonly season?: {
-          readonly id: string;
-          readonly name: string;
-        };
-      };
-      readonly stats?: RawStats;
-    }>;
-  };
-}
+const RankInfoSchema = z.object({
+  tierName: z.string(),
+  iconUrl: z.string(),
+  rating: z.string()
+});
 
-interface RawMetadata {
-  readonly activeShard?: string;
-  readonly defaultPlatform?: string;
-  readonly defaultPlaylist?: string;
-  readonly defaultSeason?: string;
-}
+const AgentInfoSchema = z.object({
+  name: z.string(),
+  imageUrl: z.string(),
+  color: z.string()
+});
 
-interface RawSeasonData {
-  readonly metadata?: {
-    readonly episodeName?: string;
-    readonly actName?: string;
-    readonly name?: string;
-    readonly topAgents?: Array<{
-      readonly name?: string;
-      readonly imageUrl?: string;
-      readonly playtime?: number;
-      readonly color?: string;
-    }>;
-  };
-  readonly stats?: RawStats;
-  readonly attributes?: {
-    readonly act?: string;
-    readonly season?: {
-      readonly id: string;
-      readonly name: string;
-    };
-  };
-}
+// Raw Data Schemas for API Responses
+const RawTopAgentSchema = z.object({
+  name: z.string().optional(),
+  imageUrl: z.string().optional(),
+  playtime: z.number().optional(),
+  color: z.string().optional()
+});
 
-interface RawMatch {
-  readonly attributes: {
-    readonly id: string;
-    readonly seasonId: string;
-  };
-  readonly metadata: {
-    readonly timestamp: string;
-    readonly seasonName: string;
-    readonly modeName: string;
-    readonly modeImageUrl: string;
-    readonly map: string;
-    readonly mapName: string;
-    readonly mapImageUrl: string;
-  };
-  readonly segments: Array<{
-    readonly metadata: {
-      readonly hasWon: boolean;
-      readonly agentName: string;
-      readonly agent: string;
-      readonly agentImageUrl: string;
-      readonly agentColor: string;
-    };
-    readonly stats: {
-      readonly playtime: { displayValue: string };
-      readonly roundsPlayed: RawStat;
-      readonly roundsWon: RawStat;
-      readonly roundsLost: RawStat;
-      readonly kills: RawStat;
-      readonly deaths: RawStat;
-      readonly assists: RawStat;
-      readonly kdRatio: RawStat;
-      readonly headshotsPercentage: RawStat;
-      readonly damagePerRound: RawStat;
-      readonly damageDeltaPerRound: RawStat;
-      readonly scorePerRound: RawStat;
-      readonly kAST: RawStat;
-      readonly trnPerformanceScore: RawStat;
-      readonly rank: RawStat;
-    };
-  }>;
-}
+const RawSeasonDataSchema = z.object({
+  metadata: z.object({
+    episodeName: z.string().optional(),
+    actName: z.string().optional(),
+    topAgents: z.array(RawTopAgentSchema).optional()
+  }).optional(),
+  stats: z.record(StatValueSchema).optional(),
+  attributes: z.object({
+    act: z.string().optional()
+  }).optional(),
+  type: z.string().optional()
+});
 
-interface RawMatchResponse {
-  metadata: {
-    dateStarted: string;
-    duration: number;
-    modeName: string;
-    playlist: string;
-    map: string;
-    mapName: string;
-    mapImageUrl: string;
-    mapDetails?: {
-      imageUrl: string;
-    };
-  };
-  segments: Array<RawTeamSegment | RawPlayerSegment>;
-  streams?: {
-    entries: RawStreamEntry[];
-  };
-}
+const RawTeamSegmentSchema = z.object({
+  type: z.literal('team-summary'),
+  attributes: z.object({
+    teamId: z.string()
+  }),
+  metadata: z.object({
+    hasWon: z.boolean()
+  }),
+  stats: z.object({
+    roundsWon: StatValueSchema,
+    roundsLost: StatValueSchema
+  })
+});
 
-interface RawTeamSegment {
-  readonly type: string;
-  readonly attributes: {
-    readonly teamId: string;
-  };
-  readonly metadata: {
-    readonly hasWon: boolean;
-  };
-  readonly stats: {
-    readonly roundsWon: RawStat;
-    readonly roundsLost: RawStat;
-  };
-}
+const RawPlayerSegmentSchema = z.object({
+  type: z.literal('player-summary'),
+  metadata: z.object({
+    platformInfo: z.object({
+      platformUserHandle: z.string()
+    }),
+    partyId: z.string(),
+    teamId: z.string(),
+    agentKey: z.string(),
+    agentName: z.string(),
+    agentColor: z.string(),
+    agentImageUrl: z.string(),
+    agentPortraitUrl: z.string(),
+    accountLevel: z.number()
+  }),
+  stats: z.object({
+    rank: StatValueSchema.extend({ displayValue: z.string() }),
+    currRank: StatValueSchema.extend({ displayValue: z.string() }),
+    scorePerRound: StatValueSchema,
+    kills: StatValueSchema,
+    deaths: StatValueSchema,
+    assists: StatValueSchema,
+    kdRatio: StatValueSchema,
+    damagePerRound: StatValueSchema,
+    damageDeltaPerRound: StatValueSchema,
+    plants: StatValueSchema,
+    defuses: StatValueSchema,
+    firstKills: StatValueSchema,
+    firstDeaths: StatValueSchema,
+    headshotsPercentage: StatValueSchema,
+    kAST: StatValueSchema,
+    trnPerformanceScore: StatValueSchema
+  })
+});
 
-interface RawPlayerSegment {
-  readonly type: string;
-  readonly metadata: {
-    readonly platformInfo: {
-      readonly platformUserHandle: string;
-    };
-    readonly partyId: string;
-    readonly teamId: string;
-    readonly agentKey: string;
-    readonly agentName: string;
-    readonly agentColor: string;
-    readonly agentImageUrl: string;
-    readonly agentPortraitUrl: string;
-    readonly accountLevel: number;
-  };
-  readonly stats: {
-    readonly rank: RawStat & { displayValue: string };
-    readonly currRank: RawStat & { displayValue: string };
-    readonly scorePerRound: RawStat;
-    readonly kills: RawStat;
-    readonly deaths: RawStat;
-    readonly assists: RawStat;
-    readonly kdRatio: RawStat;
-    readonly damagePerRound: RawStat;
-    readonly damageDeltaPerRound: RawStat;
-    readonly plants: RawStat;
-    readonly defuses: RawStat;
-    readonly firstKills: RawStat;
-    readonly firstDeaths: RawStat;
-    readonly headshotsPercentage: RawStat;
-    readonly kAST: RawStat;
-    readonly trnPerformanceScore: RawStat;
-  };
-}
+// Response Schemas
+const ProfileStatsSchema = z.object({
+  timePlayed: StatValueSchema,
+  matchesPlayed: StatValueSchema,
+  matchesWon: StatValueSchema,
+  matchesLost: StatValueSchema,
+  matchesTied: StatValueSchema,
+  matchesWinPct: StatValueSchema,
+  kills: StatValueSchema,
+  deaths: StatValueSchema,
+  assists: StatValueSchema,
+  kDRatio: StatValueSchema,
+  kDARatio: StatValueSchema,
+  damagePerRound: StatValueSchema,
+  headshotsPercentage: StatValueSchema,
+  kAST: StatValueSchema,
+  mostKillsInMatch: StatValueSchema,
+  aces: StatValueSchema,
+  rank: RankInfoSchema,
+  peakRank: RankInfoSchema,
+  trnPerformanceScore: StatValueSchema
+});
 
-interface RawStreamEntry {
-  readonly playerInfo: {
-    readonly platformUserHandle: string;
-  };
-  readonly video: {
-    readonly platformSlug: string;
-    readonly platformUserHandle: string;
-    readonly platformUserId: string;
-    readonly timestamp: string;
-    readonly startedAt: string;
-    readonly endedAt: string;
-    readonly duration: number;
-    readonly viewCount: number;
-    readonly title: string;
-    readonly url: string;
-    readonly thumbnailUrl: string;
-    readonly isOnline: boolean;
-  };
-}
+const ProfileResponseSchema = z.object({
+  platformInfo: z.object({
+    platformUserHandle: z.string(),
+    platformUserIdentifier: z.string(),
+    avatarUrl: z.string()
+  }),
+  stats: ProfileStatsSchema,
+  metadata: z.object({
+    defaultPlatform: z.string(),
+    defaultPlaylist: z.string(),
+    defaultSeason: z.string(),
+    region: z.string()
+  })
+});
 
-// Base interfaces for common patterns
-interface StatValue {
-  readonly displayValue: string;
-  readonly percentile?: number;
-}
+const SeasonStatsSchema = ProfileStatsSchema.omit({
+  assists: true,
+  trnPerformanceScore: true,
+  kDARatio: true,
+  aces: true
+}).extend({
+  scorePerRound: StatValueSchema
+});
 
-interface RankInfo {
-  readonly tierName: string;
-  readonly iconUrl: string;
-  readonly rating: string;
-}
+const TopAgentSchema = AgentInfoSchema.extend({
+  playtime: z.number(),
+  playtimeHoursAndMinutes: z.string()
+});
 
-interface AgentInfo {
-  readonly name: string;
-  readonly imageUrl: string;
-  readonly playtime: number;
-  readonly playtimeHoursAndMinutes: string;
-  readonly color: string;
-}
+const SeasonDataSchema = z.object({
+  id: z.string(),
+  seasonName: z.string(),
+  actName: z.string(),
+  combinedName: z.string(),
+  lifetimeStats: z.object({
+    lifetimeHours: z.string(),
+    lifetimeMatches: z.string()
+  }).optional(),
+  topAgents: z.array(TopAgentSchema),
+  stats: SeasonStatsSchema
+});
 
-// Raw API response types
-interface RawStat {
-  readonly displayValue?: string;
-  readonly percentile?: number;
-  readonly metadata?: {
-    readonly tierName?: string;
-    readonly iconUrl?: string;
-  };
-}
+const MatchStatsSchema = z.object({
+  hasWon: z.boolean(),
+  agent: AgentInfoSchema.extend({
+    id: z.string()
+  }),
+  matchLength: z.string(),
+  roundsPlayed: StatValueSchema,
+  roundsWon: StatValueSchema,
+  roundsLost: StatValueSchema,
+  kills: StatValueSchema,
+  deaths: StatValueSchema,
+  assists: StatValueSchema,
+  kDRatio: StatValueSchema,
+  headshotsPercentage: StatValueSchema,
+  damagePerRound: StatValueSchema,
+  damageDeltaPerRound: StatValueSchema,
+  scorePerRound: StatValueSchema,
+  kAST: StatValueSchema,
+  trnPerformanceScore: StatValueSchema,
+  rank: RankInfoSchema
+});
 
-interface RawStats {
-  readonly timePlayed?: RawStat;
-  readonly matchesPlayed?: RawStat;
-  readonly rank?: RawStat;
-  readonly peakRank?: RawStat;
-  readonly damagePerRound?: RawStat;
-  readonly kDRatio?: RawStat;
-  readonly headshotsPercentage?: RawStat;
-  readonly matchesWinPct?: RawStat;
-  readonly matchesWon?: RawStat;
-  readonly matchesLost?: RawStat;
-  readonly matchesTied?: RawStat;
-  readonly kills?: RawStat;
-  readonly deaths?: RawStat;
-  readonly assists?: RawStat;
-  readonly kDARatio?: RawStat;
-  readonly kAST?: RawStat;
-  readonly mostKillsInMatch?: RawStat;
-  readonly aces?: RawStat;
-  readonly trnPerformanceScore?: RawStat;
-  readonly scorePerRound?: RawStat;
-}
+const MatchResponseSchema = z.object({
+  id: z.string(),
+  timestamp: z.string(),
+  season: z.object({
+    id: z.string(),
+    name: z.string()
+  }),
+  gamemode: z.object({
+    name: z.string(),
+    imageUrl: z.string()
+  }),
+  map: z.object({
+    id: z.string(),
+    name: z.string(),
+    imageUrl: z.string()
+  }),
+  stats: MatchStatsSchema
+});
 
-// Response types for profile endpoint
-interface ProfileStats {
-  readonly timePlayed: StatValue;
-  readonly matchesPlayed: StatValue;
-  readonly matchesWon: StatValue;
-  readonly matchesLost: StatValue;
-  readonly matchesTied: StatValue;
-  readonly matchesWinPct: StatValue;
-  readonly kills: StatValue;
-  readonly deaths: StatValue;
-  readonly assists: StatValue;
-  readonly kDRatio: StatValue;
-  readonly kDARatio: StatValue;
-  readonly damagePerRound: StatValue;
-  readonly headshotsPercentage: StatValue;
-  readonly kAST: StatValue;
-  readonly mostKillsInMatch: StatValue;
-  readonly aces: StatValue;
-  readonly rank: RankInfo;
-  readonly peakRank: RankInfo;
-  readonly trnPerformanceScore: StatValue;
-}
+const MatchListResponseSchema = z.object({
+  matches: z.array(MatchResponseSchema)
+});
 
-export interface ProfileResponse {
-  readonly platformInfo: {
-    readonly platformUserHandle: string;
-    readonly platformUserIdentifier: string;
-    readonly avatarUrl: string;
-  };
-  readonly stats: ProfileStats;
-  readonly metadata: {
-    readonly defaultPlatform: string;
-    readonly defaultPlaylist: string;
-    readonly defaultSeason: string;
-    readonly region: string;
-  };
-}
+const TeamSummarySchema = z.object({
+  teamId: z.string(),
+  hasWon: z.boolean(),
+  roundsWon: StatValueSchema,
+  roundsLost: StatValueSchema
+});
 
-// Response types for season report endpoint
-interface SeasonStats extends Omit<ProfileStats, 'assists' | 'trnPerformanceScore' | 'kDARatio' | 'aces'> {
-  readonly scorePerRound: StatValue;
-}
+const PlayerSummarySchema = z.object({
+  platformUserHandle: z.string(),
+  partyId: z.string(),
+  teamId: z.string(),
+  agent: AgentInfoSchema.extend({
+    id: z.string(),
+    portraitUrl: z.string()
+  }),
+  accountLevel: z.number(),
+  matchRank: RankInfoSchema.extend({
+    displayValue: z.string()
+  }),
+  currentRank: RankInfoSchema.extend({
+    rating: z.string()
+  }),
+  stats: z.object({
+    scorePerRound: StatValueSchema,
+    kills: StatValueSchema,
+    deaths: StatValueSchema,
+    assists: StatValueSchema,
+    kDRatio: StatValueSchema,
+    damagePerRound: StatValueSchema,
+    damageDeltaPerRound: StatValueSchema,
+    plants: StatValueSchema,
+    defuses: StatValueSchema,
+    firstKills: StatValueSchema,
+    firstDeaths: StatValueSchema,
+    headshotPercentage: StatValueSchema,
+    kAST: StatValueSchema,
+    trnPerformanceScore: StatValueSchema
+  })
+});
 
-export interface SeasonData {
-  readonly id: string;
-  readonly seasonName: string;
-  readonly actName: string;
-  readonly combinedName: string;
-  readonly lifetimeStats?: {
-    readonly lifetimeHours: string;
-    readonly lifetimeMatches: string;
-  };
-  readonly topAgents: AgentInfo[];
-  readonly stats: SeasonStats;
-}
+const StreamInfoSchema = z.object({
+  playerInfo: z.object({
+    platformUserHandle: z.string()
+  }),
+  video: z.object({
+    platformSlug: z.string(),
+    platformUserHandle: z.string(),
+    platformUserId: z.string(),
+    timestamp: z.string(),
+    startedAt: z.string(),
+    endedAt: z.string(),
+    duration: z.number(),
+    viewCount: z.number(),
+    title: z.string(),
+    url: z.string(),
+    thumbnailUrl: z.string(),
+    isOnline: z.boolean()
+  })
+});
 
-// Response types for match list endpoint
-interface MatchStats {
-  readonly hasWon: boolean;
-  readonly agent: {
-    readonly name: string;
-    readonly id: string;
-    readonly imageUrl: string;
-    readonly color: string;
-  };
-  readonly matchLength: string;
-  readonly roundsPlayed: StatValue;
-  readonly roundsWon: StatValue;
-  readonly roundsLost: StatValue;
-  readonly kills: StatValue;
-  readonly deaths: StatValue;
-  readonly assists: StatValue;
-  readonly kDRatio: StatValue;
-  readonly headshotsPercentage: StatValue;
-  readonly damagePerRound: StatValue;
-  readonly damageDeltaPerRound: StatValue;
-  readonly scorePerRound: StatValue;
-  readonly kAST: StatValue;
-  readonly trnPerformanceScore: StatValue;
-  readonly rank: RankInfo;
-}
+const MatchDetailsResponseSchema = z.object({
+  timestamp: z.string(),
+  duration: z.number(),
+  durationFormatted: z.string(),
+  gamemode: z.object({
+    name: z.string(),
+    playlist: z.string()
+  }),
+  map: z.object({
+    id: z.string(),
+    name: z.string(),
+    imageUrl: z.string(),
+    minimapUrl: z.string()
+  }),
+  teams: z.array(TeamSummarySchema),
+  players: z.array(PlayerSummarySchema),
+  streams: z.array(StreamInfoSchema)
+});
 
-export interface MatchListResponse {
-  readonly matches: Array<{
-    readonly id: string;
-    readonly timestamp: string;
-    readonly season: {
-      readonly id: string;
-      readonly name: string;
-    };
-    readonly gamemode: {
-      readonly name: string;
-      readonly imageUrl: string;
-    };
-    readonly map: {
-      readonly id: string;
-      readonly name: string;
-      readonly imageUrl: string;
-    };
-    readonly stats: MatchStats;
-  }>;
-}
-
-// Response types for match details endpoint
-interface TeamSummary {
-  readonly teamId: string;
-  readonly hasWon: boolean;
-  readonly roundsWon: StatValue;
-  readonly roundsLost: StatValue;
-}
-
-interface PlayerSummary {
-  readonly platformUserHandle: string;
-  readonly partyId: string;
-  readonly teamId: string;
-  readonly agent: {
-    readonly id: string;
-    readonly name: string;
-    readonly color: string;
-    readonly imageUrl: string;
-    readonly portraitUrl: string;
-  };
-  readonly accountLevel: number;
-  readonly matchRank: RankInfo & { displayValue: string };
-  readonly currentRank: RankInfo & { rating: string };
-  readonly stats: {
-    readonly scorePerRound: StatValue;
-    readonly kills: StatValue;
-    readonly deaths: StatValue;
-    readonly assists: StatValue;
-    readonly kDRatio: StatValue;
-    readonly damagePerRound: StatValue;
-    readonly damageDeltaPerRound: StatValue;
-    readonly plants: StatValue;
-    readonly defuses: StatValue;
-    readonly firstKills: StatValue;
-    readonly firstDeaths: StatValue;
-    readonly headshotPercentage: StatValue;
-    readonly kAST: StatValue;
-    readonly trnPerformanceScore: StatValue;
-  };
-}
-
-interface StreamInfo {
-  readonly playerInfo: {
-    readonly platformUserHandle: string;
-  };
-  readonly video: {
-    readonly platformSlug: string;
-    readonly platformUserHandle: string;
-    readonly platformUserId: string;
-    readonly timestamp: string;
-    readonly startedAt: string;
-    readonly endedAt: string;
-    readonly duration: number;
-    readonly viewCount: number;
-    readonly title: string;
-    readonly url: string;
-    readonly thumbnailUrl: string;
-    readonly isOnline: boolean;
-  };
-}
-
-export interface MatchDetailsResponse {
-  readonly timestamp: string;
-  readonly duration: number;
-  readonly durationFormatted: string;
-  readonly gamemode: {
-    readonly name: string;
-    readonly playlist: string;
-  };
-  readonly map: {
-    readonly id: string;
-    readonly name: string;
-    readonly imageUrl: string;
-    readonly minimapUrl: string;
-  };
-  readonly teams: TeamSummary[];
-  readonly players: PlayerSummary[];
-  readonly streams: StreamInfo[];
-}
-
-export interface ApiError {
-  readonly message: string;
-  readonly status: number;
-}
+// Export types based on schemas
+export type ProfileResponse = z.infer<typeof ProfileResponseSchema>;
+export type SeasonData = z.infer<typeof SeasonDataSchema>;
+export type MatchListResponse = z.infer<typeof MatchListResponseSchema>;
+export type MatchDetailsResponse = z.infer<typeof MatchDetailsResponseSchema>;
+export type RawSeasonData = z.infer<typeof RawSeasonDataSchema>;
+export type RawTeamSegment = z.infer<typeof RawTeamSegmentSchema>;
+export type RawPlayerSegment = z.infer<typeof RawPlayerSegmentSchema>;
 
 export class ValorantAPI {
-  private readonly BASE_URL = 'https://api.tracker.network/api/v2/valorant/standard' as const;
-  private readonly DEFAULT_HEADERS = {
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-  } as const;
+  private readonly axiosInstance: AxiosInstance;
+  private readonly BASE_URL = 'https://api.tracker.network/api/v2/valorant/standard';
 
-  private readonly ERROR_MESSAGES: Readonly<Record<number, string>> = {
-    400: 'Invalid request. Please check the player name and tag.',
-    401: 'Unauthorized. Please check your API credentials.',
-    403: 'Forbidden. Access denied.',
-    404: 'Player not found.',
-    429: 'Too many requests. Please try again later.',
-    500: 'Internal server error. Please try again later.',
-    503: 'Service unavailable. Please try again later.'
-  };
+  constructor() {
+    this.axiosInstance = axios.create({
+      baseURL: this.BASE_URL,
+      timeout: 10000,
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+      }
+    });
 
-  private formatPlaytime(seconds: number): string {
-    const hours = Math.floor(seconds / 3600);
-    const minutes = Math.floor((seconds % 3600) / 60);
-    return `${hours}h ${minutes}m`;
+    // Add response interceptor for logging
+    this.axiosInstance.interceptors.response.use(
+      (response) => {
+        logger.info({
+          url: response.config.url,
+          status: response.status,
+          duration: response.headers['x-response-time']
+        });
+        return response;
+      },
+      (error: AxiosError) => {
+        logger.error({
+          url: error.config?.url,
+          status: error.response?.status,
+          error: error.message
+        });
+        throw error;
+      }
+    );
   }
 
-  private formatDuration(ms: number): string {
-    const seconds = Math.floor(ms / 1000);
-    const hours = Math.floor(seconds / 3600);
-    const minutes = Math.floor((seconds % 3600) / 60);
-    return hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
-  }
-
-  private extractSeasonNumbers(name: string): { episode: number; act: number } {
-    const match = name.match(/E(\d+):\s*A(\d+)/);
-    return match 
-      ? { episode: parseInt(match[1]), act: parseInt(match[2]) }
-      : { episode: 0, act: 0 };
-  }
-
-  private getPlaylistFromMode(mode: string): string {
-    const playlists: Readonly<Record<string, string>> = {
+  // Memoized utility functions
+  private getPlaylistFromMode = memoize((mode: string): string => {
+    const playlists: Record<string, string> = {
       'auto': 'competitive',
       'competitive': 'competitive',
       'premier': 'premier',
@@ -487,218 +360,107 @@ export class ValorantAPI {
 
     const normalizedMode = mode.toLowerCase();
     return playlists[normalizedMode] ?? normalizedMode;
+  });
+
+  private extractSeasonNumbers = memoize((name: string): { episode: number; act: number } => {
+    const match = name.match(/E(\d+):\s*A(\d+)/);
+    return match 
+      ? { episode: parseInt(match[1]), act: parseInt(match[2]) }
+      : { episode: 0, act: 0 };
+  });
+
+  // Time formatting using Luxon
+  private formatPlaytime(seconds: number): string {
+    const duration = DateTime.fromMillis(seconds * 1000);
+    return `${Math.floor(duration.toMillis() / (1000 * 60 * 60))}h ${Math.floor((duration.toMillis() % (1000 * 60 * 60)) / (1000 * 60))}m`;
   }
 
-  private createError(status: number): ApiError {
-    return {
-      message: this.ERROR_MESSAGES[status] ?? 'An unknown error occurred.',
-      status
-    };
+  private formatDuration(ms: number): string {
+    const duration = DateTime.fromMillis(ms);
+    const hours = Math.floor(duration.toMillis() / (1000 * 60 * 60));
+    return hours > 0 
+      ? `${hours}h ${Math.floor((duration.toMillis() % (1000 * 60 * 60)) / (1000 * 60))}m`
+      : `${Math.floor(duration.toMillis() / (1000 * 60))}m`;
   }
 
-  private handleError(error: unknown): ApiError {
-    if (error instanceof Error) {
-      return {
-        message: error.message,
-        status: 500
-      };
-    }
-    return {
-      message: 'An unknown error occurred.',
-      status: 500
-    };
-  }
-
-  private extractStatValue(stat?: RawStat): StatValue {
-    return {
-      displayValue: stat?.displayValue ?? '0',
-      ...(stat?.percentile && { percentile: stat.percentile })
-    };
-  }
-
-  private extractMetadata(data: RawProfileResponse | undefined): {
-    activeShard: string;
-    defaultPlatform: string;
-    defaultPlaylist: string;
-    defaultSeason: string;
-  } {
-    return {
-      activeShard: data?.data?.metadata?.activeShard ?? 'unknown',
-      defaultPlatform: data?.data?.metadata?.defaultPlatform ?? '',
-      defaultPlaylist: data?.data?.metadata?.defaultPlaylist ?? '',
-      defaultSeason: data?.data?.metadata?.defaultSeason ?? ''
-    };
-  }
-
-  private extractRankInfo(stat?: RawStat): RankInfo {
-    return {
-      tierName: stat?.metadata?.tierName ?? 'Unranked',
-      rating: stat?.displayValue ?? '',
-      iconUrl: stat?.metadata?.iconUrl ?? ''
-    };
-  }
-
-  async getProfile(name: string, tag: string): Promise<ProfileResponse> {
-    const encodedTag = encodeURIComponent(`${name}#${tag}`);
-    
-    try {
-      const url = new URL(`${this.BASE_URL}/profile/riot/${encodedTag}`);
-      url.searchParams.append('source', 'overwolf-2');
-
-      const response = await fetch(url.toString(), {
-        headers: this.DEFAULT_HEADERS
+  // Enhanced error handling
+  private handleError(error: unknown): never {
+    if (axios.isAxiosError(error)) {
+      const status = error.response?.status ?? 500;
+      const message = error.response?.data?.error ?? error.message;
+      
+      logger.error({
+        type: 'API_ERROR',
+        status,
+        message,
+        url: error.config?.url
       });
 
-      if (!response.ok) {
-        throw this.createError(response.status);
-      }
-
-      const data = await response.json() as RawProfileResponse;
-      
-      // Safely get segments with fallbacks
-      const segments = data?.data?.segments ?? [];
-      const firstSegment = segments[0];
-      const stats = firstSegment?.stats ?? {};
-      const platformInfo = data?.data?.platformInfo ?? {};
-      const metadata = this.extractMetadata(data);
-
-      // Construct response with safe fallbacks
-      return {
-        platformInfo: {
-          platformUserHandle: platformInfo.platformUserHandle ?? `${name}#${tag}`,
-          platformUserIdentifier: platformInfo.platformUserHandle ?? `${name}#${tag}`,
-          avatarUrl: platformInfo.avatarUrl ?? ''
-        },
-        metadata: {
-          defaultPlatform: metadata.defaultPlatform,
-          defaultPlaylist: metadata.defaultPlaylist,
-          defaultSeason: metadata.defaultSeason,
-          region: metadata.activeShard
-        },
-        stats: {
-          timePlayed: this.extractStatValue(stats.timePlayed),
-          matchesPlayed: this.extractStatValue(stats.matchesPlayed),
-          matchesWon: this.extractStatValue(stats.matchesWon),
-          matchesLost: this.extractStatValue(stats.matchesLost),
-          matchesTied: this.extractStatValue(stats.matchesTied),
-          matchesWinPct: this.extractStatValue(stats.matchesWinPct),
-          kills: this.extractStatValue(stats.kills),
-          deaths: this.extractStatValue(stats.deaths),
-          assists: this.extractStatValue(stats.assists),
-          kDRatio: this.extractStatValue(stats.kDRatio),
-          kDARatio: this.extractStatValue(stats.kDARatio),
-          damagePerRound: this.extractStatValue(stats.damagePerRound),
-          headshotsPercentage: this.extractStatValue(stats.headshotsPercentage),
-          kAST: this.extractStatValue(stats.kAST),
-          mostKillsInMatch: this.extractStatValue(stats.mostKillsInMatch),
-          aces: this.extractStatValue(stats.aces),
-          rank: this.extractRankInfo(stats.rank),
-          peakRank: this.extractRankInfo(stats.peakRank),
-          trnPerformanceScore: this.extractStatValue(stats.trnPerformanceScore)
-        },
-      };
-    } catch (error) {
-      throw this.handleError(error);
+      throw new APIError(message, status);
     }
-}
+
+    if (error instanceof z.ZodError) {
+      logger.error({
+        type: 'VALIDATION_ERROR',
+        errors: error.errors
+      });
+
+      throw new ValidationError('Invalid response data', error.errors);
+    }
+
+    logger.error({
+      type: 'UNKNOWN_ERROR',
+      error
+    });
+
+    throw new Error('An unknown error occurred');
+  }
+
+  // API Methods
+  async getProfile(name: string, tag: string): Promise<ProfileResponse> {
+    try {
+      const encodedTag = encodeURIComponent(`${name}#${tag}`);
+      const { data } = await this.axiosInstance.get(`/profile/riot/${encodedTag}`, {
+        params: { source: 'overwolf-2' }
+      });
+
+      return ProfileResponseSchema.parse(data);
+    } catch (error) {
+      this.handleError(error);
+    }
+  }
 
   async getSeasonReport(name: string, tag: string, gamemode: string): Promise<SeasonData[]> {
-    const encodedTag = encodeURIComponent(`${name}#${tag}`);
-    
     try {
-      const url = new URL(`${this.BASE_URL}/profile/riot/${encodedTag}/segments/season-report`);
-      url.searchParams.append('playlist', this.getPlaylistFromMode(gamemode));
-      url.searchParams.append('source', 'overwolf-2');
-
-      const response = await fetch(url.toString(), {
-        headers: this.DEFAULT_HEADERS
-      });
-
-      if (!response.ok) {
-        throw this.createError(response.status);
-      }
-
-      const data = await response.json() as RawSeasonResponse;
-      
-      if (!data?.data || !Array.isArray(data.data)) {
-        throw new Error('Invalid season report data');
-      }
-
-      // First, get lifetime matchmaking data
-      const lifetimeData = data.data.find((item: LifetimeData | RawSeasonData): item is LifetimeData => 
-        'type' in item && item.type === 'lifetime-matchmaking-time'
+      const encodedTag = encodeURIComponent(`${name}#${tag}`);
+      const { data } = await this.axiosInstance.get(
+        `/profile/riot/${encodedTag}/segments/season-report`,
+        {
+          params: {
+            playlist: this.getPlaylistFromMode(gamemode),
+            source: 'overwolf-2'
+          }
+        }
       );
-      const lifetimeHours = lifetimeData?.stats?.hours?.displayValue ?? '0';
-      const lifetimeMatches = lifetimeData?.stats?.matches?.displayValue ?? '0';
-
-      interface LifetimeStats {
-        lifetimeHours: string;
-        lifetimeMatches: string;
-      }
 
       // Process season data
-      const seasonData: SeasonData[] = data.data
-        .filter((season: LifetimeData | RawSeasonData): season is RawSeasonData => 
-          'metadata' in season && 
-          'stats' in season &&
-          Boolean(season.metadata) && 
-          Boolean(season.stats) &&
-          'attributes' in season
-        )
-        .map((season: RawSeasonData): SeasonData => {
-          const { metadata, stats } = season;
-
-          // Add lifetime data to first season if it's the first one in the filtered list
-          const firstSeason = data.data?.find((item: LifetimeData | RawSeasonData): item is RawSeasonData => 
-            'metadata' in item && 
-            item.metadata !== undefined &&
-            item.metadata !== null &&
-            'episodeName' in item.metadata &&
-            Boolean(item.metadata.episodeName)
-          );
-          const isFirstSeason: boolean = metadata?.episodeName === firstSeason?.metadata?.episodeName;
-          const lifetimeStats: LifetimeStats | undefined = isFirstSeason ? {
-            lifetimeHours,
-            lifetimeMatches
-          } : undefined;
-
-          const topAgents: AgentInfo[] = (metadata?.topAgents ?? []).map((agent) => ({
+      const seasonData = data.data
+        .filter((season: unknown) => RawSeasonDataSchema.safeParse(season).success)
+        .map((season: z.infer<typeof RawSeasonDataSchema>) => ({
+          id: season.attributes?.act ?? '',
+          seasonName: season.metadata?.episodeName ?? '',
+          actName: season.metadata?.actName ?? '',
+          combinedName: `${season.metadata?.episodeName} ${season.metadata?.actName}`.trim(),
+          topAgents: (season.metadata?.topAgents ?? []).map(agent => ({
             name: agent.name ?? '',
             imageUrl: agent.imageUrl ?? '',
+            color: agent.color ?? '',
             playtime: agent.playtime ?? 0,
-            playtimeHoursAndMinutes: this.formatPlaytime(agent.playtime ?? 0),
-            color: agent.color ?? ''
-          }));
-
-          return {
-            id: season.attributes?.act ?? '',
-            seasonName: metadata?.episodeName ?? '',
-            actName: metadata?.actName ?? '',
-            combinedName: `${metadata?.episodeName} ${metadata?.actName}`.trim(),
-            ...(lifetimeStats && { lifetimeStats }),
-            topAgents,
-            stats: {
-              timePlayed: this.extractStatValue(stats?.timePlayed),
-              matchesPlayed: this.extractStatValue(stats?.matchesPlayed),
-              matchesWon: this.extractStatValue(stats?.matchesWon),
-              matchesLost: this.extractStatValue(stats?.matchesLost),
-              matchesTied: this.extractStatValue(stats?.matchesTied),
-              matchesWinPct: this.extractStatValue(stats?.matchesWinPct),
-              kills: this.extractStatValue(stats?.kills),
-              deaths: this.extractStatValue(stats?.deaths),
-              kDRatio: this.extractStatValue(stats?.kDRatio),
-              damagePerRound: this.extractStatValue(stats?.damagePerRound),
-              headshotsPercentage: this.extractStatValue(stats?.headshotsPercentage),
-              kAST: this.extractStatValue(stats?.kAST),
-              mostKillsInMatch: this.extractStatValue(stats?.mostKillsInMatch),
-              rank: this.extractRankInfo(stats?.rank),
-              peakRank: this.extractRankInfo(stats?.peakRank),
-              scorePerRound: this.extractStatValue(stats?.scorePerRound)
-            }
-          };
-        })
-        .sort((a: SeasonData, b: SeasonData) => {
-          // Sort by episode and act in descending order
+            playtimeHoursAndMinutes: this.formatPlaytime(agent.playtime ?? 0)
+          })),
+          stats: season.stats ?? {}
+        }))
+        .sort((a: z.infer<typeof SeasonDataSchema>, b: z.infer<typeof SeasonDataSchema>) => {
           const aNumbers = this.extractSeasonNumbers(a.seasonName);
           const bNumbers = this.extractSeasonNumbers(b.seasonName);
           return bNumbers.episode !== aNumbers.episode
@@ -706,9 +468,9 @@ export class ValorantAPI {
             : bNumbers.act - aNumbers.act;
         });
 
-      return seasonData;
+      return z.array(SeasonDataSchema).parse(seasonData);
     } catch (error) {
-      throw this.handleError(error);
+      this.handleError(error);
     }
   }
 
@@ -723,118 +485,45 @@ export class ValorantAPI {
       page?: number;
     }
   ): Promise<MatchListResponse> {
-    const encodedTag = encodeURIComponent(`${name}#${tag}`);
-    
     try {
-      const url = new URL(`${this.BASE_URL}/matches/riot/${encodedTag}`);
-      url.searchParams.append('source', 'overwolf-2');
-
-      if (options?.type) {
-        url.searchParams.append('type', this.getPlaylistFromMode(options.type));
-      }
-      if (options?.season) {
-        url.searchParams.append('season', options.season);
-      }
-      if (options?.agent) {
-        url.searchParams.append('agent', options.agent);
-      }
-      if (options?.map) {
-        url.searchParams.append('map', options.map);
-      }
-      if (options?.page) {
-        url.searchParams.append('next', options.page.toString());
-      }
-
-      const response = await fetch(url.toString(), {
-        headers: this.DEFAULT_HEADERS
+      const encodedTag = encodeURIComponent(`${name}#${tag}`);
+      const { data } = await this.axiosInstance.get(`/matches/riot/${encodedTag}`, {
+        params: {
+          source: 'overwolf-2',
+          ...(options?.type && { type: this.getPlaylistFromMode(options.type) }),
+          ...(options?.season && { season: options.season }),
+          ...(options?.agent && { agent: options.agent }),
+          ...(options?.map && { map: options.map }),
+          ...(options?.page && { next: options.page })
+        }
       });
 
-      if (!response.ok) {
-        throw this.createError(response.status);
-      }
-
-      const data = await response.json();
-
-      return {
-        matches: data.data.matches.map((match: RawMatch) => ({
-          id: match.attributes.id,
-          timestamp: match.metadata.timestamp,
-          season: {
-            id: match.attributes.seasonId,
-            name: match.metadata.seasonName
-          },
-          gamemode: {
-            name: match.metadata.modeName,
-            imageUrl: match.metadata.modeImageUrl
-          },
-          map: {
-            id: match.metadata.map,
-            name: match.metadata.mapName,
-            imageUrl: match.metadata.mapImageUrl
-          },
-          stats: {
-            hasWon: match.segments[0].metadata.hasWon,
-            agent: {
-              name: match.segments[0].metadata.agentName,
-              id: match.segments[0].metadata.agent,
-              imageUrl: match.segments[0].metadata.agentImageUrl,
-              color: match.segments[0].metadata.agentColor
-            },
-            matchLength: match.segments[0].stats.playtime.displayValue,
-            roundsPlayed: this.extractStatValue(match.segments[0].stats.roundsPlayed),
-            roundsWon: this.extractStatValue(match.segments[0].stats.roundsWon),
-            roundsLost: this.extractStatValue(match.segments[0].stats.roundsLost),
-            kills: this.extractStatValue(match.segments[0].stats.kills),
-            deaths: this.extractStatValue(match.segments[0].stats.deaths),
-            assists: this.extractStatValue(match.segments[0].stats.assists),
-            kDRatio: this.extractStatValue(match.segments[0].stats.kdRatio),
-            headshotsPercentage: this.extractStatValue(match.segments[0].stats.headshotsPercentage),
-            damagePerRound: this.extractStatValue(match.segments[0].stats.damagePerRound),
-            damageDeltaPerRound: this.extractStatValue(match.segments[0].stats.damageDeltaPerRound),
-            scorePerRound: this.extractStatValue(match.segments[0].stats.scorePerRound),
-            kAST: this.extractStatValue(match.segments[0].stats.kAST),
-            trnPerformanceScore: this.extractStatValue(match.segments[0].stats.trnPerformanceScore),
-            rank: this.extractRankInfo(match.segments[0].stats.rank)
-          }
-        }))
-      };
+      return MatchListResponseSchema.parse(data);
     } catch (error) {
-      throw this.handleError(error);
+      this.handleError(error);
     }
   }
 
   async getMatchDetails(matchId: string): Promise<MatchDetailsResponse> {
     try {
-      const url = new URL(`${this.BASE_URL}/matches/${matchId}`);
-      url.searchParams.append('source', 'overwolf-2');
-
-      const response = await fetch(url.toString(), {
-        headers: this.DEFAULT_HEADERS
+      const { data } = await this.axiosInstance.get(`/matches/${matchId}`, {
+        params: { source: 'overwolf-2' }
       });
 
-      if (!response.ok) {
-        throw this.createError(response.status);
-      }
-
-      const data = await response.json();
-
-      // Process team summaries
+      // Process teams
       const teams = data.segments
-        .filter((segment: RawTeamSegment) => segment.type === 'team-summary')
-        .map((team: RawTeamSegment) => ({
+        .filter((segment: unknown) => RawTeamSegmentSchema.safeParse(segment).success)
+        .map((team: z.infer<typeof RawTeamSegmentSchema>) => ({
           teamId: team.attributes.teamId,
           hasWon: team.metadata.hasWon,
-          roundsWon: this.extractStatValue(team.stats.roundsWon),
-          roundsLost: this.extractStatValue(team.stats.roundsLost)
+          roundsWon: team.stats.roundsWon,
+          roundsLost: team.stats.roundsLost
         }));
 
-      // Process player summaries
-      const rawData = data as RawMatchResponse;
-      const players = rawData.segments
-        .filter((segment: RawTeamSegment | RawPlayerSegment): segment is RawPlayerSegment => 
-          segment.type === 'player-summary'
-        )
-        .map((player: RawPlayerSegment) => ({
+      // Process players
+      const players = data.segments
+        .filter((segment: unknown) => RawPlayerSegmentSchema.safeParse(segment).success)
+        .map((player: z.infer<typeof RawPlayerSegmentSchema>) => ({
           platformUserHandle: player.metadata.platformInfo.platformUserHandle,
           partyId: player.metadata.partyId,
           teamId: player.metadata.teamId,
@@ -847,75 +536,79 @@ export class ValorantAPI {
           },
           accountLevel: player.metadata.accountLevel,
           matchRank: {
-            ...this.extractRankInfo(player.stats.rank),
+            tierName: player.stats.rank.metadata?.tierName ?? 'Unranked',
+            iconUrl: player.stats.rank.metadata?.iconUrl ?? '',
             displayValue: player.stats.rank.displayValue
           },
           currentRank: {
-            ...this.extractRankInfo(player.stats.currRank),
+            tierName: player.stats.currRank.metadata?.tierName ?? 'Unranked',
+            iconUrl: player.stats.currRank.metadata?.iconUrl ?? '',
             rating: player.stats.currRank.displayValue
           },
           stats: {
-            scorePerRound: this.extractStatValue(player.stats.scorePerRound),
-            kills: this.extractStatValue(player.stats.kills),
-            deaths: this.extractStatValue(player.stats.deaths),
-            assists: this.extractStatValue(player.stats.assists),
-            kDRatio: this.extractStatValue(player.stats.kdRatio),
-            damagePerRound: this.extractStatValue(player.stats.damagePerRound),
-            damageDeltaPerRound: this.extractStatValue(player.stats.damageDeltaPerRound),
-            plants: this.extractStatValue(player.stats.plants),
-            defuses: this.extractStatValue(player.stats.defuses),
-            firstKills: this.extractStatValue(player.stats.firstKills),
-            firstDeaths: this.extractStatValue(player.stats.firstDeaths),
-            headshotPercentage: this.extractStatValue(player.stats.headshotsPercentage),
-            kAST: this.extractStatValue(player.stats.kAST),
-            trnPerformanceScore: this.extractStatValue(player.stats.trnPerformanceScore)
+            scorePerRound: player.stats.scorePerRound,
+            kills: player.stats.kills,
+            deaths: player.stats.deaths,
+            assists: player.stats.assists,
+            kDRatio: player.stats.kdRatio,
+            damagePerRound: player.stats.damagePerRound,
+            damageDeltaPerRound: player.stats.damageDeltaPerRound,
+            plants: player.stats.plants,
+            defuses: player.stats.defuses,
+            firstKills: player.stats.firstKills,
+            firstDeaths: player.stats.firstDeaths,
+            headshotPercentage: player.stats.headshotsPercentage,
+            kAST: player.stats.kAST,
+            trnPerformanceScore: player.stats.trnPerformanceScore
           }
         }));
 
-      // Process streams
-      const streams = (rawData.streams?.entries ?? []).map((entry: RawStreamEntry) => ({
-        playerInfo: {
-          platformUserHandle: entry.playerInfo.platformUserHandle
-        },
-        video: {
-          platformSlug: entry.video.platformSlug,
-          platformUserHandle: entry.video.platformUserHandle,
-          platformUserId: entry.video.platformUserId,
-          timestamp: entry.video.timestamp,
-          startedAt: entry.video.startedAt,
-          endedAt: entry.video.endedAt,
-          duration: entry.video.duration,
-          viewCount: entry.video.viewCount,
-          title: entry.video.title,
-          url: entry.video.url,
-          thumbnailUrl: entry.video.thumbnailUrl,
-          isOnline: entry.video.isOnline
-        }
-      }));
-
-      return {
-        timestamp: rawData.metadata.dateStarted,
-        duration: rawData.metadata.duration,
-        durationFormatted: this.formatDuration(rawData.metadata.duration),
+      const matchDetails = {
+        timestamp: data.metadata.dateStarted,
+        duration: data.metadata.duration,
+        durationFormatted: this.formatDuration(data.metadata.duration),
         gamemode: {
-          name: rawData.metadata.modeName,
-          playlist: rawData.metadata.playlist
+          name: data.metadata.modeName,
+          playlist: data.metadata.playlist
         },
         map: {
-          id: rawData.metadata.map,
-          name: rawData.metadata.mapName,
-          imageUrl: rawData.metadata.mapImageUrl,
-          minimapUrl: rawData.metadata.mapDetails?.imageUrl ?? ''
+          id: data.metadata.map,
+          name: data.metadata.mapName,
+          imageUrl: data.metadata.mapImageUrl,
+          minimapUrl: data.metadata.mapDetails?.imageUrl ?? ''
         },
         teams,
         players,
-        streams
+        streams: data.streams?.entries ?? []
       };
+
+      return MatchDetailsResponseSchema.parse(matchDetails);
     } catch (error) {
-      throw this.handleError(error);
+      this.handleError(error);
     }
+  }
+
+  // Cache response data
+  private async cacheResponse(key: string, data: unknown, ttl: number = 300): Promise<void> {
+    logger.debug(`Would cache data for key: ${key} with TTL: ${ttl}s`);
+    // Redis implementation would go here if needed
   }
 }
 
-// Export a singleton instance
+// Custom error classes for better error handling
+export class APIError extends Error {
+  constructor(message: string, public status: number) {
+    super(message);
+    this.name = 'APIError';
+  }
+}
+
+export class ValidationError extends Error {
+  constructor(message: string, public details: z.ZodError['errors']) {
+    super(message);
+    this.name = 'ValidationError';
+  }
+}
+
+// Export singleton instance
 export const valorantAPI = Object.freeze(new ValorantAPI());
